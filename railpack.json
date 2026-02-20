@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "packages": {
+    "node": "22"
+  },
+  "steps": {
+    "install": {
+      "commands": ["npm ci --include=dev"]
+    },
+    "build": {
+      "inputs": [{ "step": "install" }],
+      "commands": ["node ./node_modules/vite/bin/vite.js build"]
+    }
+  },
+  "deploy": {
+    "startCommand": "node server.js",
+    "variables": {
+      "NODE_ENV": "production"
+    }
+  }
+}
