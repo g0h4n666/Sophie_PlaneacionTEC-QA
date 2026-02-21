@@ -149,7 +149,7 @@ const server = createServer(async (req, res) => {
         [macroproyecto]
       );
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(rows));
+      res.end(JSON.stringify(rows.map(r => ({ proyecto: r.PROYECTO, idMacroproyecto: r.ID_MACROPROYECTO }))));
     } catch (err) {
       console.error('❌ Error en /api/proyectos:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
