@@ -334,6 +334,25 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ─── GET /api/debug-schema (TEMPORAL) ────────────────────────────────────
+  if (req.url === '/api/debug-schema' && req.method === 'GET') {
+    try {
+      const [tables] = await pool.execute(
+        `SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY
+           FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = 'PASO_1_IDENTIFICACION'
+          ORDER BY TABLE_NAME, ORDINAL_POSITION`
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(tables));
+    } catch (err) {
+      console.error('❌ Error en /api/debug-schema:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // ─── GET /api/tipo-servicio ───────────────────────────────────────────────
   if (req.url === '/api/tipo-servicio' && req.method === 'GET') {
     try {
