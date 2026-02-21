@@ -43,18 +43,6 @@ const GERENTE_INTER_OPTIONS = [
   "DANIELA ORJUELA", "JORGE VARGAS", "SALOMON RAMIREZ"
 ];
 
-const KPI_OPTIONS = [
-  "REDUCCIÓN DE CHURN",
-  "INCREMENTO ARPU",
-  "MEJORA NPS",
-  "EFICIENCIA OPERATIVA (COST-OUT)",
-  "COBERTURA POBLACIONAL 5G",
-  "DISPONIBILIDAD DE RED (SLA)",
-  "TIME TO MARKET (TTM)",
-  "EXPERIENCIA DE CLIENTE (CX)",
-  "REDUCCIÓN DE MTTR",
-  "MONETIZACIÓN DE DATOS"
-];
 
 const RISK_MATRIX_SCORES: Record<number, number[]> = {
   1: [1, 2, 3, 4, 5],
@@ -138,6 +126,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
 
   const [macroproyectoOptions, setMacroproyectoOptions] = useState<string[]>([]);
   const [proyectoOptions, setProyectoOptions] = useState<{ proyecto: string; idMacroproyecto: string }[]>([]);
+  const [kpiOptions, setKpiOptions] = useState<string[]>([]);
 
   useEffect(() => {
     if (!show) return;
@@ -145,6 +134,10 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
       .then(r => r.json())
       .then(data => setMacroproyectoOptions(Array.isArray(data) ? data : []))
       .catch(() => setMacroproyectoOptions([]));
+    fetch('/api/kpis')
+      .then(r => r.json())
+      .then(data => setKpiOptions(Array.isArray(data) ? data : []))
+      .catch(() => setKpiOptions([]));
   }, [show]);
 
   useEffect(() => {
@@ -602,7 +595,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <div className="relative">
                     <select value={formData.businessCase?.contribucionKPIs || ''} onChange={(e) => handleKPIChange(e.target.value)} className={getInputClasses('contribucionKPIs')}>
                       <option value="">Seleccione KPI...</option>
-                      {KPI_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      {kpiOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     </select>
                     <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 rotate-90 pointer-events-none" />
                   </div>

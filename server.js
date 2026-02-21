@@ -158,6 +158,24 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ─── GET /api/kpis ────────────────────────────────────────────────────────
+  if (req.url === '/api/kpis' && req.method === 'GET') {
+    try {
+      const [rows] = await pool.execute(
+        `SELECT DISTINCT CHAR_PALANCA FROM T_P_ESTRATEGIA
+          WHERE CHAR_PALANCA IS NOT NULL AND CHAR_PALANCA <> ''
+          ORDER BY CHAR_PALANCA`
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows.map(r => r.CHAR_PALANCA)));
+    } catch (err) {
+      console.error('❌ Error en /api/kpis:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // ─── GET /api/macroproyectos ───────────────────────────────────────────────
   if (req.url === '/api/macroproyectos' && req.method === 'GET') {
     try {
