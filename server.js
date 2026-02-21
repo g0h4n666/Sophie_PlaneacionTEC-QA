@@ -132,6 +132,32 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ─── GET /api/proyectos?macroproyecto=XXX ─────────────────────────────────
+  if (req.url.startsWith('/api/proyectos') && req.method === 'GET') {
+    try {
+      const urlObj = new URL(req.url, `http://localhost`);
+      const macroproyecto = urlObj.searchParams.get('macroproyecto');
+      if (!macroproyecto) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'macroproyecto requerido' }));
+        return;
+      }
+      const [rows] = await pool.execute(
+        `SELECT PROYECTO, ID_MACROPROYECTO FROM T_P_MACRO_Y_PROYECTO
+          WHERE MACROPROYECTO = ? AND PROYECTO IS NOT NULL AND PROYECTO <> ''
+          ORDER BY PROYECTO`,
+        [macroproyecto]
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows));
+    } catch (err) {
+      console.error('❌ Error en /api/proyectos:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // ─── GET /api/macroproyectos ───────────────────────────────────────────────
   if (req.url === '/api/macroproyectos' && req.method === 'GET') {
     try {

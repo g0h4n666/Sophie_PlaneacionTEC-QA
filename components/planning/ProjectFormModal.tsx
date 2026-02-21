@@ -137,6 +137,7 @@ const FormSection: React.FC<{
 const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormData, onInputChange, onItemsChange, onSave, onSaveOnly, editingIndex, theme, errors, vigencia, budget }) => {
 
   const [macroproyectoOptions, setMacroproyectoOptions] = useState<string[]>([]);
+  const [proyectoOptions, setProyectoOptions] = useState<{ proyecto: string; idMacroproyecto: string }[]>([]);
 
   useEffect(() => {
     if (!show) return;
@@ -145,6 +146,28 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
       .then(data => setMacroproyectoOptions(Array.isArray(data) ? data : []))
       .catch(() => setMacroproyectoOptions([]));
   }, [show]);
+
+  useEffect(() => {
+    if (!formData.macroproyecto) {
+      setProyectoOptions([]);
+      return;
+    }
+    fetch(`/api/proyectos?macroproyecto=${encodeURIComponent(formData.macroproyecto)}`)
+      .then(r => r.json())
+      .then(data => setProyectoOptions(Array.isArray(data) ? data : []))
+      .catch(() => setProyectoOptions([]));
+  }, [formData.macroproyecto]);
+
+  const handleProyectoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedProyecto = e.target.value;
+    const found = proyectoOptions.find(p => p.proyecto === selectedProyecto);
+    setFormData(prev => ({
+      ...prev,
+      proyecto: selectedProyecto,
+      idProyecto: found?.idMacroproyecto ?? prev.idProyecto,
+      tieneIdAsignado: found ? true : prev.tieneIdAsignado,
+    }));
+  };
 
   const calculatedValorEsperado = (Number(formData.impactoRiesgo) || 0) * ((Number(formData.probabilidadRiesgo) || 0) / 100);
 
@@ -569,7 +592,10 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Nombre del Proyecto *</label>
-                  <input name="proyecto" value={formData.proyecto} onChange={onInputChange} className={getInputClasses('proyecto')} placeholder="Nombre general del proyecto" />
+                  <select name="proyecto" value={formData.proyecto} onChange={handleProyectoChange} className={getInputClasses('proyecto')} disabled={!formData.macroproyecto}>
+                    <option value="">{formData.macroproyecto ? 'Seleccione proyecto...' : 'Primero seleccione un macroproyecto'}</option>
+                    {proyectoOptions.map(opt => <option key={opt.proyecto} value={opt.proyecto}>{opt.proyecto}</option>)}
+                  </select>
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">KPI Estratégico Asociado *</label>
@@ -588,7 +614,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                 
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">ID del Proyecto *</label>
-                  <input name="idProyecto" value={formData.idProyecto} onChange={onInputChange} className={`${getInputClasses('idProyecto', !formData.tieneIdAsignado)} font-mono uppercase text-[#EF3340]`} placeholder="CPX-XXXX" readOnly={!formData.tieneIdAsignado} />
+                  <input name="idProyecto" value={formData.idProyecto} onChange={onInputChange} className={`${getInputClasses('idProyecto', !!formData.proyecto || !formData.tieneIdAsignado)} font-mono uppercase text-[#EF3340]`} placeholder="CPX-XXXX" readOnly={!!formData.proyecto || !formData.tieneIdAsignado} />
                   <div className="flex flex-col gap-2 mt-2">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">¿Tiene ID asignado?</label>
                     <div className="flex gap-2 w-full max-w-[150px]">
