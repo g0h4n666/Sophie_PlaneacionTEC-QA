@@ -337,24 +337,23 @@ const server = createServer(async (req, res) => {
   // ─── GET /api/debug-schema (TEMPORAL) ────────────────────────────────────
   if (req.url === '/api/debug-schema' && req.method === 'GET') {
     try {
-      const [schemas] = await pool.execute(
-        `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA ORDER BY SCHEMA_NAME`
-      );
-      const [pasoTables] = await pool.execute(
-        `SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY
+      const [cols] = await pool.execute(
+        `SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA
            FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE (UPPER(TABLE_SCHEMA) LIKE '%PASO%'
-             OR UPPER(TABLE_NAME) LIKE '%PASO%'
-             OR UPPER(TABLE_NAME) LIKE '%IDENTIFICACION%')
-          ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`
-      );
-      const [capexTables] = await pool.execute(
-        `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
           WHERE TABLE_SCHEMA = 'CAPEXCENTRAL'
-          ORDER BY TABLE_NAME`
+          ORDER BY TABLE_NAME, ORDINAL_POSITION`
       );
+      const result = {};
+      for (const row of cols) {
+        if (!result[row.TABLE_NAME]) result[row.TABLE_NAME] = [];
+        result[row.TABLE_NAME].push({
+          col: row.COLUMN_NAME, type: row.COLUMN_TYPE,
+          nullable: row.IS_NULLABLE, key: row.COLUMN_KEY,
+          default: row.COLUMN_DEFAULT, extra: row.EXTRA
+        });
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ schemas, pasoTables, capexTables }));
+      res.end(JSON.stringify(result));
     } catch (err) {
       console.error('❌ Error en /api/debug-schema:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
