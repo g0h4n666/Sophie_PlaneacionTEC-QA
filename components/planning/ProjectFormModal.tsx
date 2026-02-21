@@ -19,13 +19,6 @@ interface Props {
   budget: Budget;
 }
 
-const RUBRO_OPTIONS = [
-  "ADMINISTRATIVO", "CABLE SUBMARINO", "CAPEX VARIABLE", "DTH", "ESPECTRO", "GPON", "HFC", "INTERCOMPANY", "IPTV", "IT",
-  "NUBE PÚBLICA", "NUBE TELCO", "OPERACIÓN Y MANTENIMIENTO", "PRODUCCIÓN DE TV", "PUBLICIDAD", "RED FIJA",
-  "RED INTERNACIONAL", "RED MÓVIL-EXPANSIÓN DE SITIOS", "RED MÓVIL-INFRAESTRUCTURA DE ACCESO MÓVIL", "RED MÓVIL-NSS",
-  "RED MÓVIL-ONLINE CHARGING", "RED MÓVIL-OTROS RAN", "RED MÓVIL-SITIOS NUEVOS", "RED MÓVIL-SVA IoT",
-  "SATÉLITE", "TRANSMISIÓN", "VIDEO (PROCESAMIENTO/INYECCIÓN/OTT)", "WIFI OFFLOAD", "XDSL"
-];
 
 const TIPO_ITEM_OPTIONS = ["Hardware", "Software", "Licencias", "Servicios"];
 
@@ -123,6 +116,8 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
   const [dirCorpOptions, setDirCorpOptions] = useState<string[]>([]);
   const [dirAreaOptions, setDirAreaOptions] = useState<string[]>([]);
   const [gerenteOptions, setGerenteOptions] = useState<string[]>([]);
+  const [rubroOptions, setRubroOptions] = useState<string[]>([]);
+  const [subrubroMap, setSubrubroMap] = useState<Record<string, { subrubro: string; charPospre: string; metrica: string }[]>>({});
 
   useEffect(() => {
     if (!show) return;
@@ -142,6 +137,10 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
       .then(r => r.json())
       .then(data => setDirCorpOptions(Array.isArray(data) ? data : []))
       .catch(() => setDirCorpOptions([]));
+    fetch('/api/rubros')
+      .then(r => r.json())
+      .then(data => setRubroOptions(Array.isArray(data) ? data : []))
+      .catch(() => setRubroOptions([]));
   }, [show]);
 
   useEffect(() => {
@@ -166,6 +165,28 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
       .then(data => setGerenteOptions(Array.isArray(data) ? data : []))
       .catch(() => setGerenteOptions([]));
   }, [formData.director]);
+
+  const handleRubroChange = (itemId: string, rubro: string) => {
+    onItemsChange(formData.items.map(it =>
+      it.id === itemId ? { ...it, rubro, subrubro: '', posicionPresupuestal: '', metrica: '' } : it
+    ));
+    setSubrubroMap(prev => ({ ...prev, [itemId]: [] }));
+    if (!rubro) return;
+    fetch(`/api/pospre?rubro=${encodeURIComponent(rubro)}`)
+      .then(r => r.json())
+      .then(data => setSubrubroMap(prev => ({ ...prev, [itemId]: Array.isArray(data) ? data : [] })))
+      .catch(() => setSubrubroMap(prev => ({ ...prev, [itemId]: [] })));
+  };
+
+  const handleSubrubroChange = (itemId: string, subrubro: string) => {
+    const opts = subrubroMap[itemId] || [];
+    const found = opts.find(o => o.subrubro === subrubro);
+    onItemsChange(formData.items.map(it =>
+      it.id === itemId
+        ? { ...it, subrubro, posicionPresupuestal: found?.charPospre ?? '', metrica: found?.metrica ?? '' }
+        : it
+    ));
+  };
 
   const handleDirCorpChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
@@ -781,19 +802,22 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                         return (
                           <tr key={item.id} className="hover:bg-red-50/10 transition-colors">
                             <td className="px-2 py-4">
-                              <select value={item.rubro} onChange={(e) => updateItem(item.id, 'rubro', e.target.value)} className={getInputClasses()}>
+                              <select value={item.rubro} onChange={(e) => handleRubroChange(item.id, e.target.value)} className={getInputClasses()}>
                                 <option value="">Seleccione...</option>
-                                {RUBRO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                {rubroOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
                             </td>
                             <td className="px-2 py-4">
-                              <input value={item.subrubro} onChange={(e) => updateItem(item.id, 'subrubro', e.target.value)} className={getInputClasses()} placeholder="Subrubro técnico" />
+                              <select value={item.subrubro} onChange={(e) => handleSubrubroChange(item.id, e.target.value)} className={getInputClasses()} disabled={!item.rubro}>
+                                <option value="">{item.rubro ? 'Seleccione...' : 'Primero seleccione Rubro'}</option>
+                                {(subrubroMap[item.id] || []).map(opt => <option key={opt.subrubro} value={opt.subrubro}>{opt.subrubro}</option>)}
+                              </select>
                             </td>
                             <td className="px-2 py-4">
-                              <input value={item.posicionPresupuestal} onChange={(e) => updateItem(item.id, 'posicionPresupuestal', e.target.value)} className={`${getInputClasses()} font-mono uppercase text-[#EF3340]`} placeholder="Ej. PP123" />
+                              <input value={item.posicionPresupuestal} readOnly className={`${getInputClasses('', true)} font-mono uppercase text-[#EF3340]`} placeholder="Auto desde BD" />
                             </td>
                             <td className="px-2 py-4">
-                              <input value={item.metrica} onChange={(e) => updateItem(item.id, 'metrica', e.target.value)} className={getInputClasses()} placeholder="Ej. Sitios, Licencias" />
+                              <input value={item.metrica} readOnly className={getInputClasses('', true)} placeholder="Auto desde BD" />
                             </td>
                             <td className="px-2 py-4">
                               <select value={item.tipo} onChange={(e) => updateItem(item.id, 'tipo', e.target.value)} className={getInputClasses()}>

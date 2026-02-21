@@ -132,6 +132,54 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ─── GET /api/rubros ──────────────────────────────────────────────────────
+  if (req.url === '/api/rubros' && req.method === 'GET') {
+    try {
+      const [rows] = await pool.execute(
+        `SELECT DISTINCT RUBRO FROM T_P_POSPRE
+          WHERE RUBRO IS NOT NULL AND RUBRO <> ''
+          ORDER BY RUBRO`
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows.map(r => r.RUBRO)));
+    } catch (err) {
+      console.error('❌ Error en /api/rubros:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // ─── GET /api/pospre?rubro=XXX ────────────────────────────────────────────
+  if (req.url.startsWith('/api/pospre') && req.method === 'GET') {
+    try {
+      const urlObj = new URL(req.url, 'http://localhost');
+      const rubro = urlObj.searchParams.get('rubro');
+      if (!rubro) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'rubro requerido' }));
+        return;
+      }
+      const [rows] = await pool.execute(
+        `SELECT SUBRUBRO, CHAR_POSPRE, METRICA FROM T_P_POSPRE
+          WHERE RUBRO = ? AND SUBRUBRO IS NOT NULL AND SUBRUBRO <> ''
+          ORDER BY SUBRUBRO`,
+        [rubro]
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows.map(r => ({
+        subrubro:   r.SUBRUBRO,
+        charPospre: r.CHAR_POSPRE,
+        metrica:    r.METRICA
+      }))));
+    } catch (err) {
+      console.error('❌ Error en /api/pospre:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // ─── GET /api/proyectos?macroproyecto=XXX ─────────────────────────────────
   if (req.url.startsWith('/api/proyectos') && req.method === 'GET') {
     try {
