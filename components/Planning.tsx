@@ -283,7 +283,6 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
     const errors: Record<string, string> = {};
     if (!formData.macroproyecto) errors.macroproyecto = 'El macroproyecto es obligatorio';
     if (!formData.proyecto) errors.proyecto = 'El nombre del proyecto es obligatorio';
-    if (!formData.nombreIniciativa) errors.nombreIniciativa = 'El nombre de la iniciativa es obligatorio';
     if (!formData.descripcionBreve || formData.descripcionBreve.length < 50) {
       errors.descripcionBreve = 'La descripción técnica debe tener al menos 50 caracteres';
     }
