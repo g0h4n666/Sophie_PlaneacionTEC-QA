@@ -22,13 +22,19 @@ const MIME_TYPES = {
   '.woff2':'font/woff2',
 };
 
-// Pool de conexiones MySQL — configura las variables de entorno en .env.local (dev) o en Dokploy (prod)
+// Pool de conexiones MySQL — soporta DATABASE_* (Dokploy) y DB_* (local .env.local)
+const DB_HOST = process.env.DATABASE_HOST || process.env.DB_HOST || 'capex-capexcentral-rvuban';
+const DB_PORT = parseInt(process.env.DATABASE_PORT || process.env.DB_PORT || '3306');
+const DB_USER = process.env.DATABASE_USER || process.env.DB_USER || 'mysql';
+const DB_PASS = process.env.DATABASE_PASSWORD || process.env.DB_PASSWORD || '';
+const DB_NAME = process.env.DATABASE_NAME || process.env.DB_NAME || 'CAPEXCENTRAL';
+
 const pool = mysql.createPool({
-  host:     process.env.DB_HOST     || 'capex-bdcapex-vlcasp',
-  port:     parseInt(process.env.DB_PORT || '3306'),
-  user:     process.env.DB_USER     || 'mysql',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME     || 'CAPEXCENTRAL',
+  host:     DB_HOST,
+  port:     DB_PORT,
+  user:     DB_USER,
+  password: DB_PASS,
+  database: DB_NAME,
   charset:  'utf8mb4',
   waitForConnections: true,
   connectionLimit: 10,
@@ -38,8 +44,8 @@ const pool = mysql.createPool({
 // Verificar conexión al arrancar
 try {
   const conn = await pool.getConnection();
-  console.log('✅ MySQL conectado a', process.env.DB_HOST || 'capex-bdcapex-vlcasp');
-  console.log('   Base de datos:', process.env.DB_NAME || 'CAPEXCENTRAL');
+  console.log('✅ MySQL conectado a', DB_HOST);
+  console.log('   Base de datos:', DB_NAME);
   conn.release();
 } catch (err) {
   console.error('❌ Error conectando a MySQL:', err.message);
@@ -134,5 +140,5 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Sophie API server corriendo en puerto ${PORT}`);
-  console.log(`   DB Host: ${process.env.DB_HOST || 'capex-bdcapex-vlcasp'}`);
+  console.log(`   DB Host: ${DB_HOST}`);
 });
