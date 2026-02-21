@@ -137,6 +137,7 @@ export interface ProjectRow {
   archivoSustento?: string;
   scorecard?: InvestmentScorecard;
   workflowP2?: ProjectWorkflowP2;
+  dbId?: number;
 }
 
 export const MACRO_OPTIONS = [
@@ -309,16 +310,35 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
     }));
   };
 
-  const handleSaveOnly = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveOnly = async () => {
     if (!validateForm()) return;
-    if (editingIndex !== null) {
-      const newRows = [...rows];
-      newRows[editingIndex] = { ...formData };
-      setRows(newRows);
-    } else {
-      setRows(prev => [...prev, { ...formData }]);
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/guardar-paso1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formData, userEmail: user.email, dbId: formData.dbId })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Error desconocido al guardar');
+
+      const savedRow = { ...formData, dbId: data.dbId };
+      if (editingIndex !== null) {
+        const newRows = [...rows];
+        newRows[editingIndex] = savedRow;
+        setRows(newRows);
+      } else {
+        setRows(prev => [...prev, savedRow]);
+      }
+      closeModal();
+    } catch (err: any) {
+      console.error('❌ Error guardando en BD:', err);
+      alert(`Error al guardar: ${err.message}`);
+    } finally {
+      setIsSaving(false);
     }
-    closeModal();
   };
 
   const handleSendProject = (index: number) => {
@@ -337,20 +357,21 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
 
   return (
     <div className="space-y-8 pb-24 relative animate-in fade-in duration-500">
-      <ProjectFormModal 
-        show={showForm} 
-        onClose={closeModal} 
-        formData={formData} 
+      <ProjectFormModal
+        show={showForm}
+        onClose={closeModal}
+        formData={formData}
         setFormData={setFormData}
-        onInputChange={handleInputChange} 
-        onItemsChange={handleItemsChange} 
-        onSave={handleSaveOnly} 
+        onInputChange={handleInputChange}
+        onItemsChange={handleItemsChange}
+        onSave={handleSaveOnly}
         onSaveOnly={handleSaveOnly}
-        editingIndex={editingIndex} 
-        theme={theme} 
-        errors={formErrors} 
-        vigencia={vigencia} 
+        editingIndex={editingIndex}
+        theme={theme}
+        errors={formErrors}
+        vigencia={vigencia}
         budget={budget}
+        isSaving={isSaving}
       />
 
       <div className={`p-10 border rounded-[3rem] transition-all ${cardBg}`}>

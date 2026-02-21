@@ -17,6 +17,7 @@ interface Props {
   errors: Record<string, string>;
   vigencia: string;
   budget: Budget;
+  isSaving?: boolean;
 }
 
 
@@ -107,7 +108,7 @@ const FormSection: React.FC<{
   </div>
 );
 
-const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormData, onInputChange, onItemsChange, onSave, onSaveOnly, editingIndex, theme, errors, vigencia, budget }) => {
+const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormData, onInputChange, onItemsChange, onSave, onSaveOnly, editingIndex, theme, errors, vigencia, budget, isSaving = false }) => {
 
   const [macroproyectoOptions, setMacroproyectoOptions] = useState<string[]>([]);
   const [proyectoOptions, setProyectoOptions] = useState<{ proyecto: string; idMacroproyecto: string }[]>([]);
@@ -1142,9 +1143,12 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
               </FormSection>
 
               <div className={`pt-12 mt-12 border-t flex flex-col md:flex-row justify-end gap-6 ${theme === 'dark' ? 'border-white/5' : 'border-gray-100'}`}>
-                <button type="button" onClick={onClose} className={`px-10 py-5 text-[11px] font-black rounded-3xl border transition-all uppercase tracking-widest ${theme === 'dark' ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 text-gray-500 hover:bg-gray-50 shadow-sm'}`}>Descartar Cambios</button>
-                <button type="button" onClick={onSaveOnly} className={`px-10 py-5 text-[11px] font-black rounded-3xl border transition-all uppercase tracking-widest flex items-center justify-center gap-3 ${theme === 'dark' ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-600 hover:bg-gray-50 shadow-sm'}`}>
-                  <Save size={18} /> Guardar
+                <button type="button" onClick={onClose} disabled={isSaving} className={`px-10 py-5 text-[11px] font-black rounded-3xl border transition-all uppercase tracking-widest ${isSaving ? 'opacity-40 cursor-not-allowed' : ''} ${theme === 'dark' ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 text-gray-500 hover:bg-gray-50 shadow-sm'}`}>Descartar Cambios</button>
+                <button type="button" onClick={onSaveOnly} disabled={isSaving} className={`px-10 py-5 text-[11px] font-black rounded-3xl border transition-all uppercase tracking-widest flex items-center justify-center gap-3 ${isSaving ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''} ${theme === 'dark' ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-600 hover:bg-gray-50 shadow-sm'}`}>
+                  {isSaving
+                    ? <><svg className="animate-spin" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><circle cx={12} cy={12} r={10} strokeOpacity={0.25}/><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/></svg> Guardando...</>
+                    : <><Save size={18} /> Guardar</>
+                  }
                 </button>
               </div>
               

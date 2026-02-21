@@ -381,6 +381,179 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
     return;
   }
 
+  // ─── POST /api/guardar-paso1 ─────────────────────────────────────────────
+  if (req.url === '/api/guardar-paso1' && req.method === 'POST') {
+    try {
+      const { formData: fd, userEmail, dbId } = await readBody(req);
+
+      // Obtener TRM del año seleccionado
+      let trmProyectada = 4217;
+      if (fd.ano) {
+        const [trmRows] = await pool.execute(
+          `SELECT CHAR_TRM FROM T_P_VAR_GLOBALES WHERE ANO_INICIATIVA = ? LIMIT 1`,
+          [parseInt(fd.ano)]
+        );
+        if (trmRows.length > 0) trmProyectada = Number(trmRows[0].CHAR_TRM) || 4217;
+      }
+
+      // Calcular totales
+      const totalCop = (fd.items || []).reduce((acc, it) => acc + (parseFloat(it.capexCop) || 0), 0);
+      const totalUsd = Math.round(totalCop / trmProyectada);
+
+      const conn = await pool.getConnection();
+      await conn.beginTransaction();
+
+      try {
+        let iniciativaId = dbId || null;
+
+        if (!dbId) {
+          // ── INSERT iniciativa ──
+          const [ins] = await conn.execute(
+            `INSERT INTO PASO_1_IDENTIFICACION.T_R_M_INICIATIVA
+               (CHAR_CORREO, ANO_INICIATIVA, CHAR_MACROPROYECTO, CHAR_PROYECTO, ID_PROYECTO,
+                ID_ASIGNADO, CHAR_DESCRIP_TECNICA, CHAR_PALANCA, CHAR_RESP_BENEFICIO,
+                INTERDEPENDENCIA, AREAS_INTERDEPENDENCIAS, CAPEX_TOTAL_COP, CAPEX_TOTAL_USD, ESTADO_INICIATIVA)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'BORRADOR')`,
+            [
+              userEmail || '',
+              parseInt(fd.ano) || null,
+              fd.macroproyecto || '',
+              fd.proyecto || '',
+              fd.idProyecto || '',
+              fd.tieneIdAsignado ? 1 : 0,
+              fd.descripcionBreve || '',
+              fd.businessCase?.contribucionKPIs || '',
+              fd.responsableBeneficio || '',
+              fd.tieneInterdependencias ? 1 : 0,
+              (fd.gerentesInterdependencia || []).join(', '),
+              Math.round(totalCop),
+              totalUsd
+            ]
+          );
+          iniciativaId = ins.insertId;
+        } else {
+          // ── UPDATE iniciativa ──
+          await conn.execute(
+            `UPDATE PASO_1_IDENTIFICACION.T_R_M_INICIATIVA
+               SET CHAR_CORREO=?, ANO_INICIATIVA=?, CHAR_MACROPROYECTO=?, CHAR_PROYECTO=?, ID_PROYECTO=?,
+                   ID_ASIGNADO=?, CHAR_DESCRIP_TECNICA=?, CHAR_PALANCA=?, CHAR_RESP_BENEFICIO=?,
+                   INTERDEPENDENCIA=?, AREAS_INTERDEPENDENCIAS=?, CAPEX_TOTAL_COP=?, CAPEX_TOTAL_USD=?
+             WHERE ID_T_R_M_INICIATIVA=?`,
+            [
+              userEmail || '',
+              parseInt(fd.ano) || null,
+              fd.macroproyecto || '',
+              fd.proyecto || '',
+              fd.idProyecto || '',
+              fd.tieneIdAsignado ? 1 : 0,
+              fd.descripcionBreve || '',
+              fd.businessCase?.contribucionKPIs || '',
+              fd.responsableBeneficio || '',
+              fd.tieneInterdependencias ? 1 : 0,
+              (fd.gerentesInterdependencia || []).join(', '),
+              Math.round(totalCop),
+              totalUsd,
+              dbId
+            ]
+          );
+          // Eliminar ítems y responsable para re-insertarlos
+          await conn.execute(
+            `DELETE FROM PASO_1_IDENTIFICACION.T_R_M_ITEM_PRESUPUESTAL WHERE ID_T_R_M_INICIATIVA=?`,
+            [dbId]
+          );
+          await conn.execute(
+            `DELETE FROM PASO_1_IDENTIFICACION.T_R_M_RESPONSABLE_INICIATIVA WHERE ID_T_R_M_INICIATIVA=?`,
+            [dbId]
+          );
+        }
+
+        // ── INSERT ítems presupuestales ──
+        for (const item of (fd.items || [])) {
+          const cop = parseFloat(item.capexCop) || 0;
+          await conn.execute(
+            `INSERT INTO PASO_1_IDENTIFICACION.T_R_M_ITEM_PRESUPUESTAL
+               (ID_T_R_M_INICIATIVA, RUBRO, SUBRUBRO, CHAR_POSPRE, METRICA,
+                CHAR_TIPO_SERVICIO, CHAR_PROVEEDOR, CANTIDAD,
+                CAPEX_ASIGNADO_COP, CAPEX_ASIGNADO_USD, CHAR_DESCRIP_ITEM)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              iniciativaId,
+              item.rubro || '',
+              item.subrubro || '',
+              item.posicionPresupuestal || '',
+              item.metrica || '',
+              item.tipo || '',
+              item.proveedor || '',
+              parseInt(item.cantidad) || 1,
+              Math.round(cop),
+              Math.round(cop / trmProyectada),
+              item.descripcionLinea || ''
+            ]
+          );
+        }
+
+        // ── INSERT responsable ──
+        await conn.execute(
+          `INSERT INTO PASO_1_IDENTIFICACION.T_R_M_RESPONSABLE_INICIATIVA
+             (ID_T_R_M_INICIATIVA, CHAR_DIR_CORP, CHAR_DIR_AREA, CHAR_GERENTE)
+           VALUES (?, ?, ?, ?)`,
+          [iniciativaId, fd.directorCorporativo || '', fd.director || '', fd.gerente || '']
+        );
+
+        // ── INSERT/UPDATE clasificación (UNI en ID_T_R_M_INICIATIVA) ──
+        const soporte = fd.evidenciaRegulatoria || fd.matrizRiesgo || fd.casoNegocioArchivo || '';
+        const valorEsperado = Math.round(parseFloat(fd.cuantificacionRiesgoRegulatorio || fd.cuantificacionRiesgoTecnico || '0') || 0);
+        const vpnCop = Math.round(parseFloat(fd.businessCase?.indicadores?.vpn || '0') || 0);
+        await conn.execute(
+          `INSERT INTO PASO_1_IDENTIFICACION.T_R_P_CLASIFICACION_INICIATIVA
+             (ID_T_R_M_INICIATIVA, BOOL_OBLIGATORIO, BOOL_MANTENIMIENTO, BOOL_PROTECCION_EBITDA,
+              BOOL_CRECIMIENTO_EBITDA, BOOL_NEGOCIOS_ADYACENTES, PROBABILIDAD, IMPACTO,
+              OPCION_1, OPCION_2, OPCION_3, SOPORTE, VALOR_ESPERADO_USD, VPN_COP)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             BOOL_OBLIGATORIO=VALUES(BOOL_OBLIGATORIO), BOOL_MANTENIMIENTO=VALUES(BOOL_MANTENIMIENTO),
+             BOOL_PROTECCION_EBITDA=VALUES(BOOL_PROTECCION_EBITDA), BOOL_CRECIMIENTO_EBITDA=VALUES(BOOL_CRECIMIENTO_EBITDA),
+             BOOL_NEGOCIOS_ADYACENTES=VALUES(BOOL_NEGOCIOS_ADYACENTES), PROBABILIDAD=VALUES(PROBABILIDAD),
+             IMPACTO=VALUES(IMPACTO), OPCION_1=VALUES(OPCION_1), OPCION_2=VALUES(OPCION_2),
+             OPCION_3=VALUES(OPCION_3), SOPORTE=VALUES(SOPORTE),
+             VALOR_ESPERADO_USD=VALUES(VALOR_ESPERADO_USD), VPN_COP=VALUES(VPN_COP)`,
+          [
+            iniciativaId,
+            (fd.esObligatorioLegal || fd.generaPenalizaciones) ? 1 : 0,
+            (fd.probabilidadFalla || fd.evitaInterrupciones) ? 1 : 0,
+            (fd.evitaPerdidaIngresos || fd.reduceChurn) ? 1 : 0,
+            (fd.aumentaIngresosCortoPlazo || fd.retornoEbitda) ? 1 : 0,
+            (fd.capacidadEstrategica || fd.alineadoVision) ? 1 : 0,
+            fd.probabilidadRiesgo || 0,
+            fd.impactoRiesgo || 0,
+            fd.categoriasEstrategicas?.[0] || null,
+            fd.categoriasEstrategicas?.[1] || null,
+            fd.categoriasEstrategicas?.[2] || null,
+            soporte,
+            valorEsperado,
+            vpnCop
+          ]
+        );
+
+        await conn.commit();
+        conn.release();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, dbId: Number(iniciativaId) }));
+
+      } catch (txErr) {
+        await conn.rollback();
+        conn.release();
+        throw txErr;
+      }
+
+    } catch (err) {
+      console.error('❌ Error en /api/guardar-paso1:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // ─── GET /api/tipo-servicio ───────────────────────────────────────────────
   if (req.url === '/api/tipo-servicio' && req.method === 'GET') {
     try {
