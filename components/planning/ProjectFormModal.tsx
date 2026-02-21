@@ -117,6 +117,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
   const [dirAreaOptions, setDirAreaOptions] = useState<string[]>([]);
   const [gerenteOptions, setGerenteOptions] = useState<string[]>([]);
   const [rubroOptions, setRubroOptions] = useState<string[]>([]);
+  const [tipoServicioOptions, setTipoServicioOptions] = useState<string[]>([]);
   const [subrubroMap, setSubrubroMap] = useState<Record<string, { subrubro: string; charPospre: string; metrica: string }[]>>({});
 
   useEffect(() => {
@@ -141,6 +142,10 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
       .then(r => r.json())
       .then(data => setRubroOptions(Array.isArray(data) ? data : []))
       .catch(() => setRubroOptions([]));
+    fetch('/api/tipo-servicio')
+      .then(r => r.json())
+      .then(data => setTipoServicioOptions(Array.isArray(data) ? data : []))
+      .catch(() => setTipoServicioOptions([]));
   }, [show]);
 
   useEffect(() => {
@@ -281,7 +286,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
       rubro: '',
       subrubro: '',
       metrica: '',
-      tipo: 'Hardware',
+      tipo: '',
       proveedor: '',
       cantidad: '1',
       capexCop: '0',
@@ -821,7 +826,8 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                             </td>
                             <td className="px-2 py-4">
                               <select value={item.tipo} onChange={(e) => updateItem(item.id, 'tipo', e.target.value)} className={getInputClasses()}>
-                                {TIPO_ITEM_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                <option value="">Seleccione...</option>
+                                {tipoServicioOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
                             </td>
                             <td className="px-2 py-4">

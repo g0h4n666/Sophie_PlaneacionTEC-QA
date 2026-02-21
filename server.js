@@ -334,6 +334,24 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ─── GET /api/tipo-servicio ───────────────────────────────────────────────
+  if (req.url === '/api/tipo-servicio' && req.method === 'GET') {
+    try {
+      const [rows] = await pool.execute(
+        `SELECT DISTINCT CHAR_TIPO_SERVICIO FROM T_P_TIPO_SERVICIO
+          WHERE CHAR_TIPO_SERVICIO IS NOT NULL AND CHAR_TIPO_SERVICIO <> ''
+          ORDER BY CHAR_TIPO_SERVICIO`
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows.map(r => r.CHAR_TIPO_SERVICIO)));
+    } catch (err) {
+      console.error('❌ Error en /api/tipo-servicio:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // ─── Archivos estáticos (producción) ──────────────────────────────────────
   const urlPath = req.url.split('?')[0];
   const filePath = join(DIST_DIR, urlPath === '/' ? 'index.html' : urlPath);
