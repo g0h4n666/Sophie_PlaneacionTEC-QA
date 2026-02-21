@@ -337,14 +337,24 @@ const server = createServer(async (req, res) => {
   // ─── GET /api/debug-schema (TEMPORAL) ────────────────────────────────────
   if (req.url === '/api/debug-schema' && req.method === 'GET') {
     try {
-      const [tables] = await pool.execute(
-        `SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY
+      const [schemas] = await pool.execute(
+        `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA ORDER BY SCHEMA_NAME`
+      );
+      const [pasoTables] = await pool.execute(
+        `SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY
            FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE TABLE_SCHEMA = 'PASO_1_IDENTIFICACION'
-          ORDER BY TABLE_NAME, ORDINAL_POSITION`
+          WHERE (UPPER(TABLE_SCHEMA) LIKE '%PASO%'
+             OR UPPER(TABLE_NAME) LIKE '%PASO%'
+             OR UPPER(TABLE_NAME) LIKE '%IDENTIFICACION%')
+          ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`
+      );
+      const [capexTables] = await pool.execute(
+        `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+          WHERE TABLE_SCHEMA = 'CAPEXCENTRAL'
+          ORDER BY TABLE_NAME`
       );
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(tables));
+      res.end(JSON.stringify({ schemas, pasoTables, capexTables }));
     } catch (err) {
       console.error('❌ Error en /api/debug-schema:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
