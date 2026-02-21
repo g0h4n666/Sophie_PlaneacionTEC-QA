@@ -431,13 +431,19 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
             ]
           );
           iniciativaId = ins.insertId;
+          // Guardar el ID generado en CHAR_SUBPROYECTO
+          await conn.execute(
+            `UPDATE PASO_1_IDENTIFICACION.T_R_M_INICIATIVA SET CHAR_SUBPROYECTO=? WHERE ID_T_R_M_INICIATIVA=?`,
+            [String(iniciativaId), iniciativaId]
+          );
         } else {
           // ── UPDATE iniciativa ──
           await conn.execute(
             `UPDATE PASO_1_IDENTIFICACION.T_R_M_INICIATIVA
                SET CHAR_CORREO=?, ANO_INICIATIVA=?, CHAR_MACROPROYECTO=?, CHAR_PROYECTO=?, ID_PROYECTO=?,
                    ID_ASIGNADO=?, CHAR_DESCRIP_TECNICA=?, CHAR_PALANCA=?, CHAR_RESP_BENEFICIO=?,
-                   INTERDEPENDENCIA=?, AREAS_INTERDEPENDENCIAS=?, CAPEX_TOTAL_COP=?, CAPEX_TOTAL_USD=?
+                   INTERDEPENDENCIA=?, AREAS_INTERDEPENDENCIAS=?, CAPEX_TOTAL_COP=?, CAPEX_TOTAL_USD=?,
+                   CHAR_SUBPROYECTO=?
              WHERE ID_T_R_M_INICIATIVA=?`,
             [
               userEmail || '',
@@ -453,6 +459,7 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
               (fd.gerentesInterdependencia || []).join(', '),
               Math.round(totalCop),
               totalUsd,
+              String(dbId),
               dbId
             ]
           );
@@ -508,7 +515,7 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
           `INSERT INTO PASO_1_IDENTIFICACION.T_R_P_CLASIFICACION_INICIATIVA
              (ID_T_R_M_INICIATIVA, BOOL_OBLIGATORIO, BOOL_MANTENIMIENTO, BOOL_PROTECCION_EBITDA,
               BOOL_CRECIMIENTO_EBITDA, BOOL_NEGOCIOS_ADYACENTES, PROBABILIDAD, IMPACTO,
-              OPCION_1, OPCION_2, OPCION_3, SOPORTE, VALOR_ESPERADO_USD, VPN_COP)
+              OPCION_1, OPCION_2, OPCION_3, SOPORTE, VALOR_INGRESOS_ESPERADO, VPN_COP)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE
              BOOL_OBLIGATORIO=VALUES(BOOL_OBLIGATORIO), BOOL_MANTENIMIENTO=VALUES(BOOL_MANTENIMIENTO),
@@ -516,7 +523,7 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
              BOOL_NEGOCIOS_ADYACENTES=VALUES(BOOL_NEGOCIOS_ADYACENTES), PROBABILIDAD=VALUES(PROBABILIDAD),
              IMPACTO=VALUES(IMPACTO), OPCION_1=VALUES(OPCION_1), OPCION_2=VALUES(OPCION_2),
              OPCION_3=VALUES(OPCION_3), SOPORTE=VALUES(SOPORTE),
-             VALOR_ESPERADO_USD=VALUES(VALOR_ESPERADO_USD), VPN_COP=VALUES(VPN_COP)`,
+             VALOR_INGRESOS_ESPERADO=VALUES(VALOR_INGRESOS_ESPERADO), VPN_COP=VALUES(VPN_COP)`,
           [
             iniciativaId,
             (fd.esObligatorioLegal || fd.generaPenalizaciones) ? 1 : 0,
