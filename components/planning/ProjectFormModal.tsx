@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Plus, FolderTree, UserCheck, FileText, Trash2, Layers, Briefcase, Calculator, Check, Minus, ShieldAlert, Activity, TrendingUp, Rocket, Landmark, ChevronRight, FileUp, Link as LinkIcon, AlertTriangle, ShieldCheck, Save, Send, Coins, CheckCircle2 } from 'lucide-react';
 import { ProjectRow, BudgetLineItem } from '../Planning';
 import { Budget } from '../../types';
@@ -30,9 +30,6 @@ const RUBRO_OPTIONS = [
 const ANO_OPTIONS = ["2026", "2027", "2028"];
 const TIPO_ITEM_OPTIONS = ["Hardware", "Software", "Licencias", "Servicios"];
 
-const MACROPROYECTO_OPTIONS = [
-  "ENERGÍA 2027", "DATA 2027", "FIBRA REGIONAL 2027", "TRANSPORTE 2027", "5G 2027", "COBERTURA RURAL", "MODERNIZACIÓN CORE", "B2B SOLUTIONS"
-];
 
 const DIRECTOR_CORP_OPTIONS = [
   "FRANCISCO GOMEZ", "MARIA FERNANDA SUAREZ", "JUAN PABLO URREGO", "ANDRES MAURICIO REYES", "LILIANA ESTRADA"
@@ -138,7 +135,17 @@ const FormSection: React.FC<{
 );
 
 const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormData, onInputChange, onItemsChange, onSave, onSaveOnly, editingIndex, theme, errors, vigencia, budget }) => {
-  
+
+  const [macroproyectoOptions, setMacroproyectoOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!show) return;
+    fetch('/api/macroproyectos')
+      .then(r => r.json())
+      .then(data => setMacroproyectoOptions(Array.isArray(data) ? data : []))
+      .catch(() => setMacroproyectoOptions([]));
+  }, [show]);
+
   const calculatedValorEsperado = (Number(formData.impactoRiesgo) || 0) * ((Number(formData.probabilidadRiesgo) || 0) / 100);
 
   useEffect(() => {
@@ -557,7 +564,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Macroproyecto *</label>
                   <select name="macroproyecto" value={formData.macroproyecto} onChange={onInputChange} className={getInputClasses('macroproyecto')}>
                     <option value="">Seleccione...</option>
-                    {MACROPROYECTO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {macroproyectoOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                 </div>
                 <div className="space-y-3">
