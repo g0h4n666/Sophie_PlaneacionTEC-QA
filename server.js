@@ -261,7 +261,7 @@ const server = createServer(async (req, res) => {
         return;
       }
       const dirCorp = urlObj.searchParams.get('dirCorp');
-      const params: string[] = [dirArea];
+      const params = [dirArea];
       const dirCorpClause = dirCorp ? ' AND CHAR_DIR_CORP = ?' : '';
       if (dirCorp) params.push(dirCorp);
       const [rows] = await pool.execute(
