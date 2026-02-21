@@ -27,7 +27,6 @@ const RUBRO_OPTIONS = [
   "SATÉLITE", "TRANSMISIÓN", "VIDEO (PROCESAMIENTO/INYECCIÓN/OTT)", "WIFI OFFLOAD", "XDSL"
 ];
 
-const ANO_OPTIONS = ["2026", "2027", "2028"];
 const TIPO_ITEM_OPTIONS = ["Hardware", "Software", "Licencias", "Servicios"];
 
 
@@ -127,6 +126,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
   const [macroproyectoOptions, setMacroproyectoOptions] = useState<string[]>([]);
   const [proyectoOptions, setProyectoOptions] = useState<{ proyecto: string; idMacroproyecto: string }[]>([]);
   const [kpiOptions, setKpiOptions] = useState<string[]>([]);
+  const [varsGlobales, setVarsGlobales] = useState<{ ano: string; trm: string }[]>([]);
 
   useEffect(() => {
     if (!show) return;
@@ -138,6 +138,10 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
       .then(r => r.json())
       .then(data => setKpiOptions(Array.isArray(data) ? data : []))
       .catch(() => setKpiOptions([]));
+    fetch('/api/vars-globales')
+      .then(r => r.json())
+      .then(data => setVarsGlobales(Array.isArray(data) ? data : []))
+      .catch(() => setVarsGlobales([]));
   }, [show]);
 
   useEffect(() => {
@@ -180,7 +184,9 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
   const textColor = theme === 'dark' ? 'text-white' : 'text-gray-900';
   const subTextColor = theme === 'dark' ? 'text-gray-500' : 'text-gray-400';
   
-  const trmProyectada = 4217;
+  const trmRaw = varsGlobales.find(v => v.ano === formData.ano)?.trm || varsGlobales[0]?.trm || '4217';
+  const trmProyectada = parseFloat(trmRaw.replace(/\./g, '').replace(',', '.')) || 4217;
+  const trmDisplay = new Intl.NumberFormat('es-CO').format(trmProyectada);
 
   const totalCopCalculated = formData.items.reduce((acc, item) => acc + (parseFloat(item.capexCop) || 0), 0);
   const totalUsdCalculated = totalCopCalculated / trmProyectada;
@@ -620,13 +626,13 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Año *</label>
                   <select name="ano" value={formData.ano || ''} onChange={onInputChange} className={getInputClasses('ano')}>
                     <option value="">Seleccione Año...</option>
-                    {ANO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {varsGlobales.map(v => <option key={v.ano} value={v.ano}>{v.ano}</option>)}
                   </select>
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">TRM Proyectada *</label>
                   <div className="relative">
-                    <input value="4.217" readOnly className={getInputClasses('', true)} />
+                    <input value={trmDisplay} readOnly className={getInputClasses('', true)} />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">TASA FIJA</span>
                   </div>
                 </div>
@@ -711,7 +717,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <div className="flex items-center gap-4 bg-gray-50/50 px-6 py-2 rounded-2xl border border-gray-100 shadow-inner">
                     <div className="flex flex-col">
                       <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">TRM Proyectada</span>
-                      <span className="text-[12px] font-black text-[#EF3340]">4.217 <span className="text-[8px] text-gray-400 ml-1">TASA FIJA</span></span>
+                      <span className="text-[12px] font-black text-[#EF3340]">{trmDisplay} <span className="text-[8px] text-gray-400 ml-1">TASA FIJA</span></span>
                     </div>
                   </div>
                 }
@@ -809,7 +815,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <input value={totalCopCalculated.toLocaleString('es-CO')} readOnly className={`${getInputClasses('', true)} font-black text-2xl text-emerald-600`} />
                 </div>
                 <div className="space-y-3">
-                  <label className={`text-[10px] font-black uppercase tracking-widest ${subTextColor} ml-1`}>Monto en USD (TRM Proyectada: 4.217)</label>
+                  <label className={`text-[10px] font-black uppercase tracking-widest ${subTextColor} ml-1`}>Monto en USD (TRM Proyectada: {trmDisplay})</label>
                   <input value={totalUsdCalculated.toLocaleString('es-CO', { maximumFractionDigits: 2 })} readOnly className={`${getInputClasses('', true)} font-black text-2xl text-blue-600`} />
                 </div>
               </FormSection>

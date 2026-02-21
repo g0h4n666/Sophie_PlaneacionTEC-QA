@@ -158,6 +158,24 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ─── GET /api/vars-globales ───────────────────────────────────────────────
+  if (req.url === '/api/vars-globales' && req.method === 'GET') {
+    try {
+      const [rows] = await pool.execute(
+        `SELECT ANO_INICIATIVA, CHAR_TRM FROM T_P_VAR_GLOBALES
+          WHERE ANO_INICIATIVA IS NOT NULL AND ANO_INICIATIVA <> ''
+          ORDER BY ANO_INICIATIVA`
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows.map(r => ({ ano: String(r.ANO_INICIATIVA), trm: String(r.CHAR_TRM) }))));
+    } catch (err) {
+      console.error('❌ Error en /api/vars-globales:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // ─── GET /api/kpis ────────────────────────────────────────────────────────
   if (req.url === '/api/kpis' && req.method === 'GET') {
     try {
