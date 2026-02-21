@@ -338,22 +338,41 @@ const server = createServer(async (req, res) => {
   if (req.url === '/api/debug-schema' && req.method === 'GET') {
     try {
       const [cols] = await pool.execute(
-        `SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA
+        `SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY, EXTRA
            FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE TABLE_SCHEMA = 'CAPEXCENTRAL'
-          ORDER BY TABLE_NAME, ORDINAL_POSITION`
+          WHERE TABLE_SCHEMA IN ('CAPEXCENTRAL','PASO_1_IDENTIFICACION')
+          ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`
       );
-      const result = {};
-      for (const row of cols) {
-        if (!result[row.TABLE_NAME]) result[row.TABLE_NAME] = [];
-        result[row.TABLE_NAME].push({
-          col: row.COLUMN_NAME, type: row.COLUMN_TYPE,
-          nullable: row.IS_NULLABLE, key: row.COLUMN_KEY,
-          default: row.COLUMN_DEFAULT, extra: row.EXTRA
-        });
+      const grouped = {};
+      for (const r of cols) {
+        const sk = r.TABLE_SCHEMA; const tk = r.TABLE_NAME;
+        if (!grouped[sk]) grouped[sk] = {};
+        if (!grouped[sk][tk]) grouped[sk][tk] = [];
+        grouped[sk][tk].push({ col: r.COLUMN_NAME, type: r.COLUMN_TYPE, nullable: r.IS_NULLABLE, key: r.COLUMN_KEY, extra: r.EXTRA });
       }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
+      let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Schema</title>
+<style>body{font-family:monospace;font-size:13px;padding:20px;background:#f8f9fa}
+h2{color:#EF3340;margin:28px 0 4px;border-bottom:2px solid #EF3340;padding-bottom:4px}
+h3{color:#1a73e8;margin:18px 0 3px}
+table{border-collapse:collapse;margin-bottom:8px;width:100%;max-width:900px}
+th{background:#222;color:#fff;padding:5px 12px;text-align:left}
+td{padding:3px 12px;border-bottom:1px solid #ddd}
+.pk{background:#fff3f3}.fk{background:#f0f8ff}
+</style></head><body><h1>DB Schema</h1>`;
+      for (const [schema, tables] of Object.entries(grouped)) {
+        html += `<h2>${schema}</h2>`;
+        for (const [table, columns] of Object.entries(tables)) {
+          html += `<h3>${table}</h3><table><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Key</th><th>Extra</th></tr>`;
+          for (const c of columns) {
+            const cls = c.key === 'PRI' ? 'pk' : (c.key === 'MUL' ? 'fk' : '');
+            html += `<tr class="${cls}"><td><b>${c.col}</b></td><td>${c.type}</td><td>${c.nullable}</td><td>${c.key}</td><td>${c.extra}</td></tr>`;
+          }
+          html += `</table>`;
+        }
+      }
+      html += `</body></html>`;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
     } catch (err) {
       console.error('❌ Error en /api/debug-schema:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
