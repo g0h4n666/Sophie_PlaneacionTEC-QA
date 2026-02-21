@@ -143,13 +143,13 @@ const server = createServer(async (req, res) => {
         return;
       }
       const [rows] = await pool.execute(
-        `SELECT PROYECTO, ID_MACROPROYECTO FROM T_P_MACRO_Y_PROYECTO
+        `SELECT PROYECTO, ID FROM T_P_MACRO_Y_PROYECTO
           WHERE MACROPROYECTO = ? AND PROYECTO IS NOT NULL AND PROYECTO <> ''
           ORDER BY PROYECTO`,
         [macroproyecto]
       );
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(rows.map(r => ({ proyecto: r.PROYECTO, idMacroproyecto: r.ID_MACROPROYECTO }))));
+      res.end(JSON.stringify(rows.map(r => ({ proyecto: r.PROYECTO, idMacroproyecto: r.ID }))));
     } catch (err) {
       console.error('❌ Error en /api/proyectos:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
