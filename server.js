@@ -158,6 +158,76 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ─── GET /api/directores-corp ─────────────────────────────────────────────
+  if (req.url === '/api/directores-corp' && req.method === 'GET') {
+    try {
+      const [rows] = await pool.execute(
+        `SELECT DISTINCT CHAR_DIR_CORP FROM T_M_ORGANIGRAMA
+          WHERE CHAR_DIR_CORP IS NOT NULL AND CHAR_DIR_CORP <> ''
+          ORDER BY CHAR_DIR_CORP`
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows.map(r => r.CHAR_DIR_CORP)));
+    } catch (err) {
+      console.error('❌ Error en /api/directores-corp:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // ─── GET /api/directores-area?dirCorp=XXX ─────────────────────────────────
+  if (req.url.startsWith('/api/directores-area') && req.method === 'GET') {
+    try {
+      const urlObj = new URL(req.url, 'http://localhost');
+      const dirCorp = urlObj.searchParams.get('dirCorp');
+      if (!dirCorp) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'dirCorp requerido' }));
+        return;
+      }
+      const [rows] = await pool.execute(
+        `SELECT DISTINCT CHAR_DIR_AREA FROM T_M_ORGANIGRAMA
+          WHERE CHAR_DIR_CORP = ? AND CHAR_DIR_AREA IS NOT NULL AND CHAR_DIR_AREA <> ''
+          ORDER BY CHAR_DIR_AREA`,
+        [dirCorp]
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows.map(r => r.CHAR_DIR_AREA)));
+    } catch (err) {
+      console.error('❌ Error en /api/directores-area:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // ─── GET /api/gerentes?dirArea=XXX ────────────────────────────────────────
+  if (req.url.startsWith('/api/gerentes') && req.method === 'GET') {
+    try {
+      const urlObj = new URL(req.url, 'http://localhost');
+      const dirArea = urlObj.searchParams.get('dirArea');
+      if (!dirArea) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'dirArea requerido' }));
+        return;
+      }
+      const [rows] = await pool.execute(
+        `SELECT DISTINCT CHAR_GERENTE FROM T_M_ORGANIGRAMA
+          WHERE CHAR_DIR_AREA = ? AND CHAR_GERENTE IS NOT NULL AND CHAR_GERENTE <> ''
+          ORDER BY CHAR_GERENTE`,
+        [dirArea]
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows.map(r => r.CHAR_GERENTE)));
+    } catch (err) {
+      console.error('❌ Error en /api/gerentes:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // ─── GET /api/vars-globales ───────────────────────────────────────────────
   if (req.url === '/api/vars-globales' && req.method === 'GET') {
     try {

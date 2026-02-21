@@ -30,13 +30,6 @@ const RUBRO_OPTIONS = [
 const TIPO_ITEM_OPTIONS = ["Hardware", "Software", "Licencias", "Servicios"];
 
 
-const DIRECTOR_CORP_OPTIONS = [
-  "FRANCISCO GOMEZ", "MARIA FERNANDA SUAREZ", "JUAN PABLO URREGO", "ANDRES MAURICIO REYES", "LILIANA ESTRADA"
-];
-
-const DIRECTOR_OPTIONS = [
-  "RICARDO ACOSTA", "PATRICIA LONDONO", "FELIPE CARDONA", "DIANA MARCELA PEÑA", "JORGE ENRIQUE ROZO", "MAURICIO TOVAR"
-];
 
 const GERENTE_INTER_OPTIONS = [
   "DANIELA ORJUELA", "JORGE VARGAS", "SALOMON RAMIREZ"
@@ -127,6 +120,9 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
   const [proyectoOptions, setProyectoOptions] = useState<{ proyecto: string; idMacroproyecto: string }[]>([]);
   const [kpiOptions, setKpiOptions] = useState<string[]>([]);
   const [varsGlobales, setVarsGlobales] = useState<{ ano: string; trm: string }[]>([]);
+  const [dirCorpOptions, setDirCorpOptions] = useState<string[]>([]);
+  const [dirAreaOptions, setDirAreaOptions] = useState<string[]>([]);
+  const [gerenteOptions, setGerenteOptions] = useState<string[]>([]);
 
   useEffect(() => {
     if (!show) return;
@@ -142,7 +138,44 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
       .then(r => r.json())
       .then(data => setVarsGlobales(Array.isArray(data) ? data : []))
       .catch(() => setVarsGlobales([]));
+    fetch('/api/directores-corp')
+      .then(r => r.json())
+      .then(data => setDirCorpOptions(Array.isArray(data) ? data : []))
+      .catch(() => setDirCorpOptions([]));
   }, [show]);
+
+  useEffect(() => {
+    if (!formData.directorCorporativo) {
+      setDirAreaOptions([]);
+      setGerenteOptions([]);
+      return;
+    }
+    fetch(`/api/directores-area?dirCorp=${encodeURIComponent(formData.directorCorporativo)}`)
+      .then(r => r.json())
+      .then(data => setDirAreaOptions(Array.isArray(data) ? data : []))
+      .catch(() => setDirAreaOptions([]));
+  }, [formData.directorCorporativo]);
+
+  useEffect(() => {
+    if (!formData.director) {
+      setGerenteOptions([]);
+      return;
+    }
+    fetch(`/api/gerentes?dirArea=${encodeURIComponent(formData.director)}`)
+      .then(r => r.json())
+      .then(data => setGerenteOptions(Array.isArray(data) ? data : []))
+      .catch(() => setGerenteOptions([]));
+  }, [formData.director]);
+
+  const handleDirCorpChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setFormData(prev => ({ ...prev, directorCorporativo: val, director: '', gerente: '' }));
+  };
+
+  const handleDirAreaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setFormData(prev => ({ ...prev, director: val, gerente: '' }));
+  };
 
   useEffect(() => {
     if (!formData.macroproyecto) {
@@ -665,21 +698,24 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <FormSection title="Gobierno & Responsables" icon={<UserCheck size={22} />} theme={theme} textColor={textColor} cols={1} hFull>
                     <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Director Corporativo *</label>
-                      <select name="directorCorporativo" value={formData.directorCorporativo} onChange={onInputChange} className={getInputClasses('directorCorporativo')}>
+                      <select name="directorCorporativo" value={formData.directorCorporativo} onChange={handleDirCorpChange} className={getInputClasses('directorCorporativo')}>
                         <option value="">Seleccione...</option>
-                        {DIRECTOR_CORP_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        {dirCorpOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                     </div>
                     <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Director de Área *</label>
-                      <select name="director" value={formData.director} onChange={onInputChange} className={getInputClasses('director')}>
-                        <option value="">Seleccione...</option>
-                        {DIRECTOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      <select name="director" value={formData.director} onChange={handleDirAreaChange} className={getInputClasses('director')} disabled={!formData.directorCorporativo}>
+                        <option value="">{formData.directorCorporativo ? 'Seleccione...' : 'Primero seleccione Director Corporativo'}</option>
+                        {dirAreaOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                     </div>
                     <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Gerente Líder *</label>
-                      <input name="gerente" value={formData.gerente} onChange={onInputChange} className={getInputClasses()} placeholder="Nombre Gerente" />
+                      <select name="gerente" value={formData.gerente} onChange={onInputChange} className={getInputClasses('gerente')} disabled={!formData.director}>
+                        <option value="">{formData.director ? 'Seleccione...' : 'Primero seleccione Director de Área'}</option>
+                        {gerenteOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
                     </div>
                   </FormSection>
                 </div>
