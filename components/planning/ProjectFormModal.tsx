@@ -161,7 +161,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
       setGerenteOptions([]);
       return;
     }
-    fetch(`/api/gerentes?dirArea=${encodeURIComponent(formData.director)}`)
+    fetch(`/api/gerentes?dirArea=${encodeURIComponent(formData.director)}&dirCorp=${encodeURIComponent(formData.directorCorporativo || '')}`)
       .then(r => r.json())
       .then(data => setGerenteOptions(Array.isArray(data) ? data : []))
       .catch(() => setGerenteOptions([]));

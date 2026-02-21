@@ -212,11 +212,15 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'dirArea requerido' }));
         return;
       }
+      const dirCorp = urlObj.searchParams.get('dirCorp');
+      const params: string[] = [dirArea];
+      const dirCorpClause = dirCorp ? ' AND CHAR_DIR_CORP = ?' : '';
+      if (dirCorp) params.push(dirCorp);
       const [rows] = await pool.execute(
         `SELECT DISTINCT CHAR_GERENTE FROM T_M_ORGANIGRAMA
-          WHERE CHAR_DIR_AREA = ? AND CHAR_GERENTE IS NOT NULL AND CHAR_GERENTE <> ''
+          WHERE CHAR_DIR_AREA = ?${dirCorpClause} AND CHAR_GERENTE IS NOT NULL AND CHAR_GERENTE <> ''
           ORDER BY CHAR_GERENTE`,
-        [dirArea]
+        params
       );
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(rows.map(r => r.CHAR_GERENTE)));
