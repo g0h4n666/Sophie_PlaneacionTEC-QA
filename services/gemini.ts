@@ -2,7 +2,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Budget, Expense } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+function getAI(): GoogleGenAI {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY no está configurada en las variables de entorno');
+  return new GoogleGenAI({ apiKey });
+}
 
 export const getFinancialAudit = async (budget: Budget, expenses: Expense[]) => {
   const prompt = `
@@ -14,7 +18,7 @@ export const getFinancialAudit = async (budget: Budget, expenses: Expense[]) => 
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
@@ -76,7 +80,7 @@ export const getInvestmentCommitteeVeredict = async (project: any) => {
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
