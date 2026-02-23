@@ -564,27 +564,18 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
   // ─── GET /api/cargar-paso1?vigencia=XXXX ─────────────────────────────────
   if (req.url.startsWith('/api/cargar-paso1') && req.method === 'GET') {
     try {
-      const urlObj = new URL(req.url, 'http://localhost');
-      const vigencia = urlObj.searchParams.get('vigencia');
-
-      const params = [];
-      let whereClause = '';
-      if (vigencia) {
-        whereClause = 'WHERE i.ANO_INICIATIVA = ?';
-        params.push(parseInt(vigencia));
-      }
-
-      const [iniciativas] = await pool.execute(
+      // Traer TODOS los registros (pool.query evita problemas de prepared statements)
+      const [iniciativas] = await pool.query(
         `SELECT i.ID_T_R_M_INICIATIVA, i.CHAR_CORREO, i.ANO_INICIATIVA,
                 i.CHAR_MACROPROYECTO, i.CHAR_PROYECTO, i.ID_PROYECTO,
                 i.ID_ASIGNADO, i.CHAR_DESCRIP_TECNICA, i.CHAR_PALANCA,
                 i.CHAR_RESP_BENEFICIO, i.INTERDEPENDENCIA, i.AREAS_INTERDEPENDENCIAS,
                 i.CAPEX_TOTAL_COP, i.CAPEX_TOTAL_USD, i.ESTADO_INICIATIVA, i.CHAR_SUBPROYECTO
            FROM PASO_1_IDENTIFICACION.T_R_M_INICIATIVA i
-           ${whereClause}
-           ORDER BY i.ID_T_R_M_INICIATIVA`,
-        params
+           ORDER BY i.ID_T_R_M_INICIATIVA`
       );
+
+      console.log(`📋 /api/cargar-paso1 → ${iniciativas.length} iniciativas encontradas`);
 
       if (iniciativas.length === 0) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -592,39 +583,39 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
         return;
       }
 
-      const ids = iniciativas.map(i => i.ID_T_R_M_INICIATIVA);
-      const placeholders = ids.map(() => '?').join(',');
+      // Usar pool.query con array anidado [ids] para que mysql2 expanda IN (?,?,?)
+      const ids = iniciativas.map(i => Number(i.ID_T_R_M_INICIATIVA));
 
-      const [items] = await pool.execute(
+      const [items] = await pool.query(
         `SELECT ID_T_R_M_INICIATIVA, ID_T_R_M_ITEM_PRESUPUESTAL,
                 RUBRO, SUBRUBRO, CHAR_POSPRE, METRICA, CHAR_TIPO_SERVICIO,
                 CHAR_PROVEEDOR, CANTIDAD, CAPEX_ASIGNADO_COP, CHAR_DESCRIP_ITEM
            FROM PASO_1_IDENTIFICACION.T_R_M_ITEM_PRESUPUESTAL
-          WHERE ID_T_R_M_INICIATIVA IN (${placeholders})`,
-        ids
+          WHERE ID_T_R_M_INICIATIVA IN (?)`,
+        [ids]
       );
 
-      const [responsables] = await pool.execute(
+      const [responsables] = await pool.query(
         `SELECT ID_T_R_M_INICIATIVA, CHAR_DIR_CORP, CHAR_DIR_AREA, CHAR_GERENTE
            FROM PASO_1_IDENTIFICACION.T_R_M_RESPONSABLE_INICIATIVA
-          WHERE ID_T_R_M_INICIATIVA IN (${placeholders})`,
-        ids
+          WHERE ID_T_R_M_INICIATIVA IN (?)`,
+        [ids]
       );
 
-      const [clasificaciones] = await pool.execute(
+      const [clasificaciones] = await pool.query(
         `SELECT ID_T_R_M_INICIATIVA, BOOL_OBLIGATORIO, BOOL_MANTENIMIENTO,
                 BOOL_PROTECCION_EBITDA, BOOL_CRECIMIENTO_EBITDA, BOOL_NEGOCIOS_ADYACENTES,
                 PROBABILIDAD, IMPACTO, OPCION_1, OPCION_2, OPCION_3, SOPORTE,
                 VALOR_INGRESOS_ESPERADO, VPN_COP
            FROM PASO_1_IDENTIFICACION.T_R_P_CLASIFICACION_INICIATIVA
-          WHERE ID_T_R_M_INICIATIVA IN (${placeholders})`,
-        ids
+          WHERE ID_T_R_M_INICIATIVA IN (?)`,
+        [ids]
       );
 
       const rows = iniciativas.map(ini => {
-        const iniId = ini.ID_T_R_M_INICIATIVA;
+        const iniId = Number(ini.ID_T_R_M_INICIATIVA);
         const iniItems = items
-          .filter(it => it.ID_T_R_M_INICIATIVA === iniId)
+          .filter(it => Number(it.ID_T_R_M_INICIATIVA) === iniId)
           .map(it => ({
             id: String(it.ID_T_R_M_ITEM_PRESUPUESTAL),
             rubro: it.RUBRO || '',
@@ -638,8 +629,8 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
             descripcionLinea: it.CHAR_DESCRIP_ITEM || ''
           }));
 
-        const resp = responsables.find(r => r.ID_T_R_M_INICIATIVA === iniId);
-        const clas = clasificaciones.find(c => c.ID_T_R_M_INICIATIVA === iniId);
+        const resp = responsables.find(r => Number(r.ID_T_R_M_INICIATIVA) === iniId);
+        const clas = clasificaciones.find(c => Number(c.ID_T_R_M_INICIATIVA) === iniId);
 
         const categoriasEstrategicas = [clas?.OPCION_1, clas?.OPCION_2, clas?.OPCION_3]
           .filter(Boolean);
