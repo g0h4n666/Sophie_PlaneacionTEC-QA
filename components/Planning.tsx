@@ -236,6 +236,17 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
   const perms = rolePermissions[user.role];
   const [formData, setFormData] = useState<ProjectRow>(initialFormState);
 
+  useEffect(() => {
+    fetch(`/api/cargar-paso1?vigencia=${vigencia}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.rows.length > 0) {
+          setRows(data.rows);
+        }
+      })
+      .catch(err => console.error('❌ Error cargando PASO 1:', err));
+  }, [vigencia]);
+
   const steps = [
     { id: 1, label: 'Identificación de Demanda', key: 'step1' as const, icon: <Target size={20} />, color: 'bg-emerald-500' },
     { id: 2, label: 'Gestión & Clasificación', key: 'step2' as const, icon: <Calculator size={20} />, color: 'bg-blue-500' },

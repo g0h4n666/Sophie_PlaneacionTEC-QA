@@ -561,6 +561,185 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
     return;
   }
 
+  // ─── GET /api/cargar-paso1?vigencia=XXXX ─────────────────────────────────
+  if (req.url.startsWith('/api/cargar-paso1') && req.method === 'GET') {
+    try {
+      const urlObj = new URL(req.url, 'http://localhost');
+      const vigencia = urlObj.searchParams.get('vigencia');
+
+      const params = [];
+      let whereClause = '';
+      if (vigencia) {
+        whereClause = 'WHERE i.ANO_INICIATIVA = ?';
+        params.push(parseInt(vigencia));
+      }
+
+      const [iniciativas] = await pool.execute(
+        `SELECT i.ID_T_R_M_INICIATIVA, i.CHAR_CORREO, i.ANO_INICIATIVA,
+                i.CHAR_MACROPROYECTO, i.CHAR_PROYECTO, i.ID_PROYECTO,
+                i.ID_ASIGNADO, i.CHAR_DESCRIP_TECNICA, i.CHAR_PALANCA,
+                i.CHAR_RESP_BENEFICIO, i.INTERDEPENDENCIA, i.AREAS_INTERDEPENDENCIAS,
+                i.CAPEX_TOTAL_COP, i.CAPEX_TOTAL_USD, i.ESTADO_INICIATIVA, i.CHAR_SUBPROYECTO
+           FROM PASO_1_IDENTIFICACION.T_R_M_INICIATIVA i
+           ${whereClause}
+           ORDER BY i.ID_T_R_M_INICIATIVA`,
+        params
+      );
+
+      if (iniciativas.length === 0) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, rows: [] }));
+        return;
+      }
+
+      const ids = iniciativas.map(i => i.ID_T_R_M_INICIATIVA);
+      const placeholders = ids.map(() => '?').join(',');
+
+      const [items] = await pool.execute(
+        `SELECT ID_T_R_M_INICIATIVA, ID_T_R_M_ITEM_PRESUPUESTAL,
+                RUBRO, SUBRUBRO, CHAR_POSPRE, METRICA, CHAR_TIPO_SERVICIO,
+                CHAR_PROVEEDOR, CANTIDAD, CAPEX_ASIGNADO_COP, CHAR_DESCRIP_ITEM
+           FROM PASO_1_IDENTIFICACION.T_R_M_ITEM_PRESUPUESTAL
+          WHERE ID_T_R_M_INICIATIVA IN (${placeholders})`,
+        ids
+      );
+
+      const [responsables] = await pool.execute(
+        `SELECT ID_T_R_M_INICIATIVA, CHAR_DIR_CORP, CHAR_DIR_AREA, CHAR_GERENTE
+           FROM PASO_1_IDENTIFICACION.T_R_M_RESPONSABLE_INICIATIVA
+          WHERE ID_T_R_M_INICIATIVA IN (${placeholders})`,
+        ids
+      );
+
+      const [clasificaciones] = await pool.execute(
+        `SELECT ID_T_R_M_INICIATIVA, BOOL_OBLIGATORIO, BOOL_MANTENIMIENTO,
+                BOOL_PROTECCION_EBITDA, BOOL_CRECIMIENTO_EBITDA, BOOL_NEGOCIOS_ADYACENTES,
+                PROBABILIDAD, IMPACTO, OPCION_1, OPCION_2, OPCION_3, SOPORTE,
+                VALOR_INGRESOS_ESPERADO, VPN_COP
+           FROM PASO_1_IDENTIFICACION.T_R_P_CLASIFICACION_INICIATIVA
+          WHERE ID_T_R_M_INICIATIVA IN (${placeholders})`,
+        ids
+      );
+
+      const rows = iniciativas.map(ini => {
+        const iniId = ini.ID_T_R_M_INICIATIVA;
+        const iniItems = items
+          .filter(it => it.ID_T_R_M_INICIATIVA === iniId)
+          .map(it => ({
+            id: String(it.ID_T_R_M_ITEM_PRESUPUESTAL),
+            rubro: it.RUBRO || '',
+            subrubro: it.SUBRUBRO || '',
+            posicionPresupuestal: it.CHAR_POSPRE || '',
+            metrica: it.METRICA || '',
+            tipo: it.CHAR_TIPO_SERVICIO || '',
+            proveedor: it.CHAR_PROVEEDOR || '',
+            cantidad: String(it.CANTIDAD || 1),
+            capexCop: String(it.CAPEX_ASIGNADO_COP || 0),
+            descripcionLinea: it.CHAR_DESCRIP_ITEM || ''
+          }));
+
+        const resp = responsables.find(r => r.ID_T_R_M_INICIATIVA === iniId);
+        const clas = clasificaciones.find(c => c.ID_T_R_M_INICIATIVA === iniId);
+
+        const categoriasEstrategicas = [clas?.OPCION_1, clas?.OPCION_2, clas?.OPCION_3]
+          .filter(Boolean);
+
+        const estadoRaw = ini.ESTADO_INICIATIVA || '';
+        const estadoSoporte = estadoRaw === 'APROBADO' ? 'APROBADO'
+          : estadoRaw === 'DEVUELTO' ? 'DEVUELTO' : 'PENDIENTE';
+
+        return {
+          dbId: iniId,
+          macroproyecto: ini.CHAR_MACROPROYECTO || '',
+          proyecto: ini.CHAR_PROYECTO || '',
+          idProyecto: ini.ID_PROYECTO || '',
+          ano: String(ini.ANO_INICIATIVA || '2027'),
+          tieneIdAsignado: Boolean(ini.ID_ASIGNADO),
+          tieneInterdependencias: Boolean(ini.INTERDEPENDENCIA),
+          gerentesInterdependencia: ini.AREAS_INTERDEPENDENCIAS
+            ? ini.AREAS_INTERDEPENDENCIAS.split(',').map(s => s.trim()).filter(Boolean)
+            : [],
+          nombreIniciativa: ini.CHAR_PROYECTO || '',
+          descripcionBreve: ini.CHAR_DESCRIP_TECNICA || '',
+          directorCorporativo: resp?.CHAR_DIR_CORP || '',
+          director: resp?.CHAR_DIR_AREA || '',
+          gerente: resp?.CHAR_GERENTE || '',
+          responsableBeneficio: ini.CHAR_RESP_BENEFICIO || '',
+          items: iniItems,
+          presupuestoCop: String(ini.CAPEX_TOTAL_COP || 0),
+          presupuestoUsd: String(ini.CAPEX_TOTAL_USD || 0),
+          estadoSoporte,
+          esObligatorioLegal: Boolean(clas?.BOOL_OBLIGATORIO),
+          generaPenalizaciones: Boolean(clas?.BOOL_OBLIGATORIO),
+          probabilidadFalla: Boolean(clas?.BOOL_MANTENIMIENTO),
+          evitaInterrupciones: Boolean(clas?.BOOL_MANTENIMIENTO),
+          evitaPerdidaIngresos: Boolean(clas?.BOOL_PROTECCION_EBITDA),
+          reduceChurn: false,
+          aumentaIngresosCortoPlazo: Boolean(clas?.BOOL_CRECIMIENTO_EBITDA),
+          retornoEbitda: false,
+          capacidadEstrategica: Boolean(clas?.BOOL_NEGOCIOS_ADYACENTES),
+          alineadoVision: false,
+          probabilidadRiesgo: clas?.PROBABILIDAD || 0,
+          impactoRiesgo: clas?.IMPACTO || 0,
+          categoriasEstrategicas,
+          categoria: categoriasEstrategicas[0] || '',
+          archivoSustento: clas?.SOPORTE || '',
+          cuantificacionRiesgoRegulatorio: String(clas?.VALOR_INGRESOS_ESPERADO || 0),
+          cuantificacionRiesgoTecnico: String(clas?.VALOR_INGRESOS_ESPERADO || 0),
+          decisionComite: 'SIN DECISIÓN',
+          workflowP2: {
+            techPlanning: { status: 'PENDIENTE' },
+            finance: { status: 'PENDIENTE' },
+            risk: { status: 'PENDIENTE' }
+          },
+          scorecard: {
+            pilarEstrategico: 3,
+            pilarFinanciero: 3,
+            pilarRiesgo: 3,
+            pilarEquipo: 3,
+            pilarUrgencia: 3,
+            decisionComite: 'SIN DECISIÓN',
+            condicionObligatoria: ''
+          },
+          businessCase: {
+            activo: false,
+            casoNegocioFinanciero: '',
+            areaSolicitante: '',
+            alineacionEstrategica: '',
+            interdependencias: '',
+            objetivo: '',
+            contribucionKPIs: ini.CHAR_PALANCA || '',
+            capex: { ano0: '0', ano1: '0', ano2: '0', anon: '0' },
+            ingresos: { ano0: '0', ano1: '0', ano2: '0', anon: '0' },
+            ahorros: { ano0: '0', ano1: '0', ano2: '0', anon: '0' },
+            avoidance: { ano0: '0', ano1: '0', ano2: '0', anon: '0' },
+            opex: { ano0: '0', ano1: '0', ano2: '0', anon: '0' },
+            wacc: '12.5',
+            indicadores: {
+              vpn: String(clas?.VPN_COP || '0.00'),
+              tir: '0.00',
+              payback: '0',
+              roi: '0',
+              valorResidual: '0.00'
+            },
+            riesgosFinancieros: [],
+            ahorroOpexResumen: '0',
+            otroKPINombre: '',
+            otroKPIValor: '0'
+          }
+        };
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, rows }));
+    } catch (err) {
+      console.error('❌ Error en /api/cargar-paso1:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // ─── GET /api/tipo-servicio ───────────────────────────────────────────────
   if (req.url === '/api/tipo-servicio' && req.method === 'GET') {
     try {
