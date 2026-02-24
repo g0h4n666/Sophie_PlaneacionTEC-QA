@@ -37,14 +37,16 @@ const Step1Identificacion: React.FC<Props> = ({ rows, onAdd, onEdit, onDelete, o
         </div>
         {canModify ? (
           <div className="flex gap-4">
-            <button 
-              onClick={onExecuteSimulator} 
+            {/* SIMULADOR DESHABILITADO
+            <button
+              onClick={onExecuteSimulator}
               className="px-8 py-5 bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-[1.8rem] text-[10px] font-black flex flex-col items-center justify-center leading-none hover:scale-105 transition-all active:scale-95 shadow-[0_20px_40px_-10px_rgba(79,70,229,0.4)]"
             >
               <Cpu size={14} className="mb-1" />
               <span>EJECUTAR SIMULADOR</span>
               <span className="text-[9px] mt-0.5 opacity-80 tracking-tighter uppercase">Carga Inicial</span>
             </button>
+            */}
             <button 
               onClick={onAdd} 
               className="px-10 py-5 bg-[#EF3340] text-white rounded-[1.8rem] text-[11px] font-black flex flex-col items-center justify-center leading-none hover:scale-105 transition-all active:scale-95 shadow-[0_20px_40px_-10px_rgba(239,51,64,0.4)]"
@@ -142,9 +144,11 @@ const Step1Identificacion: React.FC<Props> = ({ rows, onAdd, onEdit, onDelete, o
       {rows.length === 0 && (
         <div className="py-40 text-center border-[3px] border-dashed border-gray-100 rounded-[5rem] bg-gray-50/20 flex flex-col items-center justify-center">
            <p className="text-gray-400 font-black uppercase text-[13px] tracking-[0.4em] opacity-40">No hay iniciativas registradas aún.</p>
+           {/* SIMULADOR DESHABILITADO
            <button onClick={onExecuteSimulator} className="mt-8 text-indigo-600 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:underline">
               <Cpu size={14} /> O utiliza el simulador para cargar datos demo
            </button>
+           */}
         </div>
       )}
     </div>
