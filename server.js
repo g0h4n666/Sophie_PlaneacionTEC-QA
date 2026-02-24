@@ -51,6 +51,25 @@ try {
   console.error('❌ Error conectando a MySQL:', err.message);
 }
 
+// Crear tabla de workflow P2 si no existe
+try {
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS PASO_1_IDENTIFICACION.T_R_P_WORKFLOW_GOBERNANZA (
+      ID_T_R_M_INICIATIVA INT NOT NULL,
+      WORKFLOW_TECH       VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+      WORKFLOW_FINANCE    VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+      WORKFLOW_RISK       VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+      DATE_TECH           DATETIME NULL,
+      DATE_FINANCE        DATETIME NULL,
+      DATE_RISK           DATETIME NULL,
+      PRIMARY KEY (ID_T_R_M_INICIATIVA)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  console.log('✅ Tabla T_R_P_WORKFLOW_GOBERNANZA lista');
+} catch (err) {
+  console.error('⚠️  No se pudo crear tabla workflow P2:', err.message);
+}
+
 // Leer body JSON de la request
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -612,6 +631,18 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
         [ids]
       );
 
+      // Cargar workflow de gobernanza (tabla puede no existir aún → fallback vacío)
+      let workflows = [];
+      try {
+        [workflows] = await pool.query(
+          `SELECT ID_T_R_M_INICIATIVA, WORKFLOW_TECH, WORKFLOW_FINANCE, WORKFLOW_RISK,
+                  DATE_TECH, DATE_FINANCE, DATE_RISK
+             FROM PASO_1_IDENTIFICACION.T_R_P_WORKFLOW_GOBERNANZA
+            WHERE ID_T_R_M_INICIATIVA IN (?)`,
+          [ids]
+        );
+      } catch (_) { /* tabla todavía no existe */ }
+
       const rows = iniciativas.map(ini => {
         const iniId = Number(ini.ID_T_R_M_INICIATIVA);
         const iniItems = items
@@ -631,6 +662,7 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
 
         const resp = responsables.find(r => Number(r.ID_T_R_M_INICIATIVA) === iniId);
         const clas = clasificaciones.find(c => Number(c.ID_T_R_M_INICIATIVA) === iniId);
+        const wf   = workflows.find(w => Number(w.ID_T_R_M_INICIATIVA) === iniId);
 
         const categoriasEstrategicas = [clas?.OPCION_1, clas?.OPCION_2, clas?.OPCION_3]
           .filter(Boolean);
@@ -679,9 +711,9 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
           cuantificacionRiesgoTecnico: String(clas?.VALOR_INGRESOS_ESPERADO || 0),
           decisionComite: 'SIN DECISIÓN',
           workflowP2: {
-            techPlanning: { status: 'PENDIENTE' },
-            finance: { status: 'PENDIENTE' },
-            risk: { status: 'PENDIENTE' }
+            techPlanning: { status: wf?.WORKFLOW_TECH    || 'PENDIENTE', date: wf?.DATE_TECH    || undefined },
+            finance:      { status: wf?.WORKFLOW_FINANCE || 'PENDIENTE', date: wf?.DATE_FINANCE || undefined },
+            risk:         { status: wf?.WORKFLOW_RISK    || 'PENDIENTE', date: wf?.DATE_RISK    || undefined }
           },
           scorecard: {
             pilarEstrategico: 3,
@@ -725,6 +757,81 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
       res.end(JSON.stringify({ success: true, rows }));
     } catch (err) {
       console.error('❌ Error en /api/cargar-paso1:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // ─── POST /api/guardar-paso2 ─────────────────────────────────────────────
+  if (req.url === '/api/guardar-paso2' && req.method === 'POST') {
+    try {
+      const { dbId, workflowP2, estadoSoporte, categoria, vpn } = await readBody(req);
+      if (!dbId) throw new Error('dbId es requerido');
+
+      const tech    = workflowP2?.techPlanning || {};
+      const finance = workflowP2?.finance      || {};
+      const risk    = workflowP2?.risk         || {};
+
+      const conn = await pool.getConnection();
+      await conn.beginTransaction();
+      try {
+        // 1. Actualizar ESTADO_INICIATIVA
+        await conn.execute(
+          `UPDATE PASO_1_IDENTIFICACION.T_R_M_INICIATIVA
+              SET ESTADO_INICIATIVA = ?
+            WHERE ID_T_R_M_INICIATIVA = ?`,
+          [estadoSoporte || 'PENDIENTE', dbId]
+        );
+
+        // 2. Upsert workflow de gobernanza
+        await conn.execute(
+          `INSERT INTO PASO_1_IDENTIFICACION.T_R_P_WORKFLOW_GOBERNANZA
+             (ID_T_R_M_INICIATIVA, WORKFLOW_TECH, WORKFLOW_FINANCE, WORKFLOW_RISK,
+              DATE_TECH, DATE_FINANCE, DATE_RISK)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             WORKFLOW_TECH    = VALUES(WORKFLOW_TECH),
+             WORKFLOW_FINANCE = VALUES(WORKFLOW_FINANCE),
+             WORKFLOW_RISK    = VALUES(WORKFLOW_RISK),
+             DATE_TECH        = VALUES(DATE_TECH),
+             DATE_FINANCE     = VALUES(DATE_FINANCE),
+             DATE_RISK        = VALUES(DATE_RISK)`,
+          [
+            dbId,
+            tech.status    || 'PENDIENTE',
+            finance.status || 'PENDIENTE',
+            risk.status    || 'PENDIENTE',
+            tech.date    ? new Date(tech.date)    : null,
+            finance.date ? new Date(finance.date) : null,
+            risk.date    ? new Date(risk.date)    : null
+          ]
+        );
+
+        // 3. Actualizar categoría y VPN en la tabla de clasificación
+        await conn.execute(
+          `UPDATE PASO_1_IDENTIFICACION.T_R_P_CLASIFICACION_INICIATIVA
+              SET OPCION_1 = ?,
+                  VPN_COP  = ?
+            WHERE ID_T_R_M_INICIATIVA = ?`,
+          [
+            categoria || null,
+            vpn !== undefined && vpn !== '' ? Math.round(parseFloat(vpn) || 0) : null,
+            dbId
+          ]
+        );
+
+        await conn.commit();
+        conn.release();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (txErr) {
+        await conn.rollback();
+        conn.release();
+        throw txErr;
+      }
+    } catch (err) {
+      console.error('❌ Error en /api/guardar-paso2:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
     }

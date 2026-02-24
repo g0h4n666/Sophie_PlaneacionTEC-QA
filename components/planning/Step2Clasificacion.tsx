@@ -100,11 +100,27 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
     setShowTechnicalSheet(prev => ({ ...prev, [projectId]: !prev[projectId] }));
   };
 
+  const persistP2 = (project: ProjectRow) => {
+    if (!project.dbId) return;
+    fetch('/api/guardar-paso2', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dbId:         project.dbId,
+        workflowP2:   project.workflowP2,
+        estadoSoporte: project.estadoSoporte,
+        categoria:    project.categoria,
+        vpn:          project.businessCase?.indicadores?.vpn
+      })
+    }).catch(err => console.error('❌ Error guardando P2:', err));
+  };
+
   const handleUpdateCategory = (originalIdx: number, category: string) => {
     if (!canModify) return;
     const newRows = [...rows];
     newRows[originalIdx].categoria = category;
     onUpdateRows(newRows);
+    persistP2(newRows[originalIdx]);
   };
 
   const handleUpdateVPN = (originalIdx: number, val: string) => {
@@ -112,13 +128,14 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
     const newRows = [...rows];
     newRows[originalIdx].businessCase.indicadores.vpn = val;
     onUpdateRows(newRows);
+    persistP2(newRows[originalIdx]);
   };
 
   const handleUpdateWorkflow = (originalIdx: number, stage: keyof ProjectWorkflowP2, newStatus: 'APROBADO' | 'RECHAZADO') => {
     if (!canModify) return;
     const newRows = [...rows];
     const project = newRows[originalIdx];
-    
+
     if (!project.workflowP2) {
       project.workflowP2 = {
         techPlanning: { status: 'PENDIENTE' },
@@ -142,6 +159,7 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
     }
 
     onUpdateRows(newRows);
+    persistP2(project);
   };
 
   const handleReturnProject = (originalIdx: number) => {
@@ -149,6 +167,7 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
     newRows[originalIdx].estadoSoporte = 'DEVUELTO';
     onUpdateRows(newRows);
     onReturnToP1(originalIdx);
+    persistP2(newRows[originalIdx]);
   };
 
   const toggleMacro = (macroName: string) => {
