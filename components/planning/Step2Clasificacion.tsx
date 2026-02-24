@@ -191,14 +191,16 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
             PREREQUISITO: VALIDACIÓN TECH <span className="mx-2 text-[#EF3340]">→</span> (FINANCIERA <span className="text-[#EF3340] underline">O</span> RIESGO)
           </p>
         </div>
+        {/* SIMULADOR DESHABILITADO
         {canModify && rows.length > 0 && (
-          <button 
+          <button
             onClick={handleSimulateGovernance}
             className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl active:scale-95 flex items-center gap-3"
           >
             <Zap size={16} className="text-yellow-300 animate-pulse" /> SIMULAR GOBERNANZA MASIVA
           </button>
         )}
+        */}
       </div>
 
       <div className="space-y-6">
