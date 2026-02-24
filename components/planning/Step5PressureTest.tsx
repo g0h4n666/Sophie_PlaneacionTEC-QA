@@ -359,8 +359,9 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
         </div>
         
         <div className="flex items-center gap-4">
+          {/* SIMULAR AUDITORÍA DESHABILITADO
           {canModify && approvedRows.length > 0 && (
-            <button 
+            <button
               type="button"
               onClick={handleSimulatePressureTest}
               className="px-10 py-5 rounded-[2rem] text-[11px] font-black uppercase tracking-widest flex items-center gap-4 bg-gradient-to-r from-purple-600 to-indigo-700 text-white hover:scale-105 transition-all shadow-xl active:scale-95 border border-white/10"
@@ -369,9 +370,11 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
               SIMULAR AUDITORÍA
             </button>
           )}
+          */}
 
+          {/* GEMINI REAL-TIME AUDIT DESHABILITADO
           {selectedProject && (
-            <button 
+            <button
               type="button"
               onClick={handleCallAI}
               disabled={loadingAI}
@@ -383,6 +386,7 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
               {loadingAI ? 'ANALIZANDO DATA...' : 'GEMINI REAL-TIME AUDIT'}
             </button>
           )}
+          */}
         </div>
       </div>
 
