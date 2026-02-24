@@ -316,10 +316,15 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          dbId:     selectedProject.dbId,
+          dbId:      selectedProject.dbId,
           scorecard: selectedProject.scorecard
         })
       });
+      // Marcar la fila como persistida en el estado local (sin necesidad de refresh)
+      const newRows = rows.map(r =>
+        r.idProyecto === selectedProjectId ? { ...r, scorecardPersistido: true } : r
+      );
+      onUpdateRows(newRows);
     } catch (err) {
       console.error('❌ Error guardando acta:', err);
     } finally {

@@ -138,6 +138,7 @@ export interface ProjectRow {
   scorecard?: InvestmentScorecard;
   workflowP2?: ProjectWorkflowP2;
   dbId?: number;
+  scorecardPersistido?: boolean;
 }
 
 export const MACRO_OPTIONS = [

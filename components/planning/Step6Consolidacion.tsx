@@ -72,7 +72,9 @@ const COLORS = {
   dark: '#0b0e14'
 };
 
-const Step6Consolidacion: React.FC<Props> = ({ rows, theme, onFinalize, canModify }) => {
+const Step6Consolidacion: React.FC<Props> = ({ rows: allRows, theme, onFinalize, canModify }) => {
+  // Solo mostrar iniciativas que hayan sido persistidas en Paso 3 (Pressure Test)
+  const rows = allRows.filter(r => r.scorecardPersistido === true);
   const [availableCapex, setAvailableCapex] = useState<number>(15000000000); 
   const [hoveredProject, setHoveredProject] = useState<any | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });

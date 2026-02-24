@@ -748,6 +748,7 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
             finance:      { status: wf?.WORKFLOW_FINANCE || 'PENDIENTE', date: wf?.DATE_FINANCE || undefined },
             risk:         { status: wf?.WORKFLOW_RISK    || 'PENDIENTE', date: wf?.DATE_RISK    || undefined }
           },
+          scorecardPersistido: !!sc,
           scorecard: {
             pilarEstrategico: sc?.PILAR_ESTRATEGICO ?? 3,
             pilarFinanciero:  sc?.PILAR_FINANCIERO  ?? 3,
