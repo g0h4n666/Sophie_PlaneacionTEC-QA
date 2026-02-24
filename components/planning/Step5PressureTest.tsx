@@ -178,6 +178,7 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
   const [selectedMacro, setSelectedMacro] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
+  const [savingScorecard, setSavingScorecard] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'GO' | 'NO-GO' | 'PIVOT' | 'SIN DECISIÓN'>('ALL');
 
   const textColor = theme === 'dark' ? 'text-white' : 'text-gray-900';
@@ -305,6 +306,25 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
       return r;
     });
     onUpdateRows(newRows);
+  };
+
+  const handlePersistirActa = async () => {
+    if (!selectedProject?.dbId) return;
+    setSavingScorecard(true);
+    try {
+      await fetch('/api/guardar-paso3', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dbId:     selectedProject.dbId,
+          scorecard: selectedProject.scorecard
+        })
+      });
+    } catch (err) {
+      console.error('❌ Error guardando acta:', err);
+    } finally {
+      setSavingScorecard(false);
+    }
   };
 
   const handleCallAI = async () => {
@@ -741,11 +761,16 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
                       />
                     </div>
 
-                    <button 
+                    <button
                       type="button"
-                      className="w-full flex items-center justify-center gap-5 bg-[#0b0e14] text-white py-8 rounded-[3rem] text-[13px] font-black uppercase tracking-[0.4em] hover:bg-[#EF3340] hover:scale-[1.01] transition-all shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] active:scale-95 group border-b-6 border-black/20"
+                      onClick={handlePersistirActa}
+                      disabled={savingScorecard}
+                      className="w-full flex items-center justify-center gap-5 bg-[#0b0e14] text-white py-8 rounded-[3rem] text-[13px] font-black uppercase tracking-[0.4em] hover:bg-[#EF3340] hover:scale-[1.01] transition-all shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] active:scale-95 group border-b-6 border-black/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
                     >
-                       <Save size={22} className="group-hover:animate-bounce" /> PERSISTIR ACTA DE AUDITORÍA
+                      {savingScorecard
+                        ? <><RefreshCw size={22} className="animate-spin" /> GUARDANDO...</>
+                        : <><Save size={22} className="group-hover:animate-bounce" /> PERSISTIR ACTA DE AUDITORÍA</>
+                      }
                     </button>
                   </div>
                 </div>

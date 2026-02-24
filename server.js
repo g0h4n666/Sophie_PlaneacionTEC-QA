@@ -70,6 +70,26 @@ try {
   console.error('⚠️  No se pudo crear tabla workflow P2:', err.message);
 }
 
+// Crear tabla de scorecard comité P3 si no existe
+try {
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS PASO_1_IDENTIFICACION.T_R_P_SCORECARD_COMITE (
+      ID_T_R_M_INICIATIVA   INT NOT NULL,
+      DECISION_COMITE       VARCHAR(20) NOT NULL DEFAULT 'SIN DECISIÓN',
+      CONDICION_OBLIGATORIA TEXT NULL,
+      PILAR_ESTRATEGICO     TINYINT NOT NULL DEFAULT 3,
+      PILAR_FINANCIERO      TINYINT NOT NULL DEFAULT 3,
+      PILAR_RIESGO          TINYINT NOT NULL DEFAULT 3,
+      PILAR_EQUIPO          TINYINT NOT NULL DEFAULT 3,
+      PILAR_URGENCIA        TINYINT NOT NULL DEFAULT 3,
+      PRIMARY KEY (ID_T_R_M_INICIATIVA)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  console.log('✅ Tabla T_R_P_SCORECARD_COMITE lista');
+} catch (err) {
+  console.error('⚠️  No se pudo crear tabla scorecard P3:', err.message);
+}
+
 // Leer body JSON de la request
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -643,6 +663,18 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
         );
       } catch (_) { /* tabla todavía no existe */ }
 
+      // Cargar scorecard del comité P3 (tabla puede no existir aún → fallback vacío)
+      let scorecards = [];
+      try {
+        [scorecards] = await pool.query(
+          `SELECT ID_T_R_M_INICIATIVA, DECISION_COMITE, CONDICION_OBLIGATORIA,
+                  PILAR_ESTRATEGICO, PILAR_FINANCIERO, PILAR_RIESGO, PILAR_EQUIPO, PILAR_URGENCIA
+             FROM PASO_1_IDENTIFICACION.T_R_P_SCORECARD_COMITE
+            WHERE ID_T_R_M_INICIATIVA IN (?)`,
+          [ids]
+        );
+      } catch (_) { /* tabla todavía no existe */ }
+
       const rows = iniciativas.map(ini => {
         const iniId = Number(ini.ID_T_R_M_INICIATIVA);
         const iniItems = items
@@ -663,6 +695,7 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
         const resp = responsables.find(r => Number(r.ID_T_R_M_INICIATIVA) === iniId);
         const clas = clasificaciones.find(c => Number(c.ID_T_R_M_INICIATIVA) === iniId);
         const wf   = workflows.find(w => Number(w.ID_T_R_M_INICIATIVA) === iniId);
+        const sc   = scorecards.find(s => Number(s.ID_T_R_M_INICIATIVA) === iniId);
 
         const categoriasEstrategicas = [clas?.OPCION_1, clas?.OPCION_2, clas?.OPCION_3]
           .filter(Boolean);
@@ -716,13 +749,13 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
             risk:         { status: wf?.WORKFLOW_RISK    || 'PENDIENTE', date: wf?.DATE_RISK    || undefined }
           },
           scorecard: {
-            pilarEstrategico: 3,
-            pilarFinanciero: 3,
-            pilarRiesgo: 3,
-            pilarEquipo: 3,
-            pilarUrgencia: 3,
-            decisionComite: 'SIN DECISIÓN',
-            condicionObligatoria: ''
+            pilarEstrategico: sc?.PILAR_ESTRATEGICO ?? 3,
+            pilarFinanciero:  sc?.PILAR_FINANCIERO  ?? 3,
+            pilarRiesgo:      sc?.PILAR_RIESGO      ?? 3,
+            pilarEquipo:      sc?.PILAR_EQUIPO      ?? 3,
+            pilarUrgencia:    sc?.PILAR_URGENCIA    ?? 3,
+            decisionComite:   sc?.DECISION_COMITE   || 'SIN DECISIÓN',
+            condicionObligatoria: sc?.CONDICION_OBLIGATORIA || ''
           },
           businessCase: {
             activo: false,
@@ -832,6 +865,47 @@ td{padding:3px 12px;border-bottom:1px solid #ddd}
       }
     } catch (err) {
       console.error('❌ Error en /api/guardar-paso2:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // ─── POST /api/guardar-paso3 ─────────────────────────────────────────────
+  if (req.url === '/api/guardar-paso3' && req.method === 'POST') {
+    try {
+      const { dbId, scorecard } = await readBody(req);
+      if (!dbId) throw new Error('dbId es requerido');
+
+      await pool.execute(
+        `INSERT INTO PASO_1_IDENTIFICACION.T_R_P_SCORECARD_COMITE
+           (ID_T_R_M_INICIATIVA, DECISION_COMITE, CONDICION_OBLIGATORIA,
+            PILAR_ESTRATEGICO, PILAR_FINANCIERO, PILAR_RIESGO, PILAR_EQUIPO, PILAR_URGENCIA)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           DECISION_COMITE       = VALUES(DECISION_COMITE),
+           CONDICION_OBLIGATORIA = VALUES(CONDICION_OBLIGATORIA),
+           PILAR_ESTRATEGICO     = VALUES(PILAR_ESTRATEGICO),
+           PILAR_FINANCIERO      = VALUES(PILAR_FINANCIERO),
+           PILAR_RIESGO          = VALUES(PILAR_RIESGO),
+           PILAR_EQUIPO          = VALUES(PILAR_EQUIPO),
+           PILAR_URGENCIA        = VALUES(PILAR_URGENCIA)`,
+        [
+          dbId,
+          scorecard?.decisionComite       || 'SIN DECISIÓN',
+          scorecard?.condicionObligatoria || null,
+          scorecard?.pilarEstrategico     ?? 3,
+          scorecard?.pilarFinanciero      ?? 3,
+          scorecard?.pilarRiesgo          ?? 3,
+          scorecard?.pilarEquipo          ?? 3,
+          scorecard?.pilarUrgencia        ?? 3
+        ]
+      );
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      console.error('❌ Error en /api/guardar-paso3:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
     }
