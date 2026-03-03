@@ -45,7 +45,7 @@ type ImpactStep = 1 | 2 | 3 | 4 | 5;
 
 const ImpactMeasurement: React.FC<Props> = ({ theme }) => {
   const [currentStep, setCurrentStep] = useState<ImpactStep>(1);
-  const [selectedMacro, setSelectedMacro] = useState<string>('ENERGÍA 2027');
+  const [selectedMacro, setSelectedMacro] = useState<string>('ENERGÍA 2026');
   const [selectedProject, setSelectedProject] = useState<string>('Baterías Estación Suba');
 
   const textColor = theme === 'dark' ? 'text-white' : 'text-gray-900';
@@ -92,9 +92,9 @@ const ImpactMeasurement: React.FC<Props> = ({ theme }) => {
            <div className="px-6 py-2">
               <p className="text-[9px] font-black text-gray-400 uppercase">Macroproyecto</p>
               <select className="bg-transparent text-[11px] font-black outline-none cursor-pointer" value={selectedMacro} onChange={e => setSelectedMacro(e.target.value)}>
-                <option>ENERGÍA 2027</option>
-                <option>5G 2027</option>
-                <option>FIBRA REGIONAL 2027</option>
+                <option>ENERGÍA 2026</option>
+                <option>5G 2026</option>
+                <option>FIBRA REGIONAL 2026</option>
               </select>
            </div>
            <div className="w-[1px] h-8 bg-gray-200"></div>
@@ -285,8 +285,8 @@ const ImpactMeasurement: React.FC<Props> = ({ theme }) => {
 
               <ImpactFormSection theme={theme} title="Plan de Mejora Continua (PT)" icon={<RefreshCw size={20} />}>
                  <div className="space-y-4">
-                    <ImprovementPlanItem title="Optimización de Despliegue v2.0" owner="Daniela Orjuela" date="Q3 2027" status="Planning" />
-                    <ImprovementPlanItem title="Reducción Logística Nodos" owner="Jorge Vargas" date="Q4 2027" status="Active" />
+                    <ImprovementPlanItem title="Optimización de Despliegue v2.0" owner="Daniela Orjuela" date="Q3 2026" status="Planning" />
+                    <ImprovementPlanItem title="Reducción Logística Nodos" owner="Jorge Vargas" date="Q4 2026" status="Active" />
                     <div className="pt-6">
                        <button className="w-full py-4 border-2 border-dashed border-gray-200 rounded-2xl text-[10px] font-black text-gray-400 uppercase tracking-widest hover:border-purple-400 hover:text-purple-600 transition-all">+ Añadir Iniciativa de Mejora</button>
                     </div>

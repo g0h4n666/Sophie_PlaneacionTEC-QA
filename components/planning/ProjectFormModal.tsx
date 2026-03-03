@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { X, Plus, FolderTree, UserCheck, FileText, Trash2, Layers, Briefcase, Calculator, Check, Minus, ShieldAlert, Activity, TrendingUp, Rocket, Landmark, ChevronRight, FileUp, Link as LinkIcon, AlertTriangle, ShieldCheck, Save, Send, Coins, CheckCircle2 } from 'lucide-react';
 import { ProjectRow, BudgetLineItem } from '../Planning';
 import { Budget } from '../../types';
@@ -17,18 +17,47 @@ interface Props {
   errors: Record<string, string>;
   vigencia: string;
   budget: Budget;
-  isSaving?: boolean;
 }
 
+const RUBRO_OPTIONS = [
+  "ADMINISTRATIVO", "CABLE SUBMARINO", "CAPEX VARIABLE", "DTH", "ESPECTRO", "GPON", "HFC", "INTERCOMPANY", "IPTV", "IT",
+  "NUBE PÚBLICA", "NUBE TELCO", "OPERACIÓN Y MANTENIMIENTO", "PRODUCCIÓN DE TV", "PUBLICIDAD", "RED FIJA",
+  "RED INTERNACIONAL", "RED MÓVIL-EXPANSIÓN DE SITIOS", "RED MÓVIL-INFRAESTRUCTURA DE ACCESO MÓVIL", "RED MÓVIL-NSS",
+  "RED MÓVIL-ONLINE CHARGING", "RED MÓVIL-OTROS RAN", "RED MÓVIL-SITIOS NUEVOS", "RED MÓVIL-SVA IoT",
+  "SATÉLITE", "TRANSMISIÓN", "VIDEO (PROCESAMIENTO/INYECCIÓN/OTT)", "WIFI OFFLOAD", "XDSL"
+];
 
+const ANO_OPTIONS = ["2026", "2027", "2028"];
 const TIPO_ITEM_OPTIONS = ["Hardware", "Software", "Licencias", "Servicios"];
 
+const MACROPROYECTO_OPTIONS = [
+  "ENERGÍA 2026", "DATA 2026", "FIBRA REGIONAL 2026", "TRANSPORTE 2026", "5G 2026", "COBERTURA RURAL", "MODERNIZACIÓN CORE", "B2B SOLUTIONS"
+];
 
+const DIRECTOR_CORP_OPTIONS = [
+  "FRANCISCO GOMEZ", "MARIA FERNANDA SUAREZ", "JUAN PABLO URREGO", "ANDRES MAURICIO REYES", "LILIANA ESTRADA"
+];
+
+const DIRECTOR_OPTIONS = [
+  "RICARDO ACOSTA", "PATRICIA LONDONO", "FELIPE CARDONA", "DIANA MARCELA PEÑA", "JORGE ENRIQUE ROZO", "MAURICIO TOVAR"
+];
 
 const GERENTE_INTER_OPTIONS = [
   "DANIELA ORJUELA", "JORGE VARGAS", "SALOMON RAMIREZ"
 ];
 
+const KPI_OPTIONS = [
+  "REDUCCIÓN DE CHURN",
+  "INCREMENTO ARPU",
+  "MEJORA NPS",
+  "EFICIENCIA OPERATIVA (COST-OUT)",
+  "COBERTURA POBLACIONAL 5G",
+  "DISPONIBILIDAD DE RED (SLA)",
+  "TIME TO MARKET (TTM)",
+  "EXPERIENCIA DE CLIENTE (CX)",
+  "REDUCCIÓN DE MTTR",
+  "MONETIZACIÓN DE DATOS"
+];
 
 const RISK_MATRIX_SCORES: Record<number, number[]> = {
   1: [1, 2, 3, 4, 5],
@@ -108,125 +137,13 @@ const FormSection: React.FC<{
   </div>
 );
 
-const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormData, onInputChange, onItemsChange, onSave, onSaveOnly, editingIndex, theme, errors, vigencia, budget, isSaving = false }) => {
-
-  const [macroproyectoOptions, setMacroproyectoOptions] = useState<string[]>([]);
-  const [proyectoOptions, setProyectoOptions] = useState<{ proyecto: string; idMacroproyecto: string }[]>([]);
-  const [kpiOptions, setKpiOptions] = useState<string[]>([]);
-  const [varsGlobales, setVarsGlobales] = useState<{ ano: string; trm: string }[]>([]);
-  const [dirCorpOptions, setDirCorpOptions] = useState<string[]>([]);
-  const [dirAreaOptions, setDirAreaOptions] = useState<string[]>([]);
-  const [gerenteOptions, setGerenteOptions] = useState<string[]>([]);
-  const [rubroOptions, setRubroOptions] = useState<string[]>([]);
-  const [tipoServicioOptions, setTipoServicioOptions] = useState<string[]>([]);
-  const [subrubroMap, setSubrubroMap] = useState<Record<string, { subrubro: string; charPospre: string; metrica: string }[]>>({});
-
-  useEffect(() => {
-    if (!show) return;
-    fetch('/api/macroproyectos')
-      .then(r => r.json())
-      .then(data => setMacroproyectoOptions(Array.isArray(data) ? data : []))
-      .catch(() => setMacroproyectoOptions([]));
-    fetch('/api/kpis')
-      .then(r => r.json())
-      .then(data => setKpiOptions(Array.isArray(data) ? data : []))
-      .catch(() => setKpiOptions([]));
-    fetch('/api/vars-globales')
-      .then(r => r.json())
-      .then(data => setVarsGlobales(Array.isArray(data) ? data : []))
-      .catch(() => setVarsGlobales([]));
-    fetch('/api/directores-corp')
-      .then(r => r.json())
-      .then(data => setDirCorpOptions(Array.isArray(data) ? data : []))
-      .catch(() => setDirCorpOptions([]));
-    fetch('/api/rubros')
-      .then(r => r.json())
-      .then(data => setRubroOptions(Array.isArray(data) ? data : []))
-      .catch(() => setRubroOptions([]));
-    fetch('/api/tipo-servicio')
-      .then(r => r.json())
-      .then(data => setTipoServicioOptions(Array.isArray(data) ? data : []))
-      .catch(() => setTipoServicioOptions([]));
-  }, [show]);
-
-  useEffect(() => {
-    if (!formData.directorCorporativo) {
-      setDirAreaOptions([]);
-      setGerenteOptions([]);
-      return;
-    }
-    fetch(`/api/directores-area?dirCorp=${encodeURIComponent(formData.directorCorporativo)}`)
-      .then(r => r.json())
-      .then(data => setDirAreaOptions(Array.isArray(data) ? data : []))
-      .catch(() => setDirAreaOptions([]));
-  }, [formData.directorCorporativo]);
-
-  useEffect(() => {
-    if (!formData.director) {
-      setGerenteOptions([]);
-      return;
-    }
-    fetch(`/api/gerentes?dirArea=${encodeURIComponent(formData.director)}&dirCorp=${encodeURIComponent(formData.directorCorporativo || '')}`)
-      .then(r => r.json())
-      .then(data => setGerenteOptions(Array.isArray(data) ? data : []))
-      .catch(() => setGerenteOptions([]));
-  }, [formData.director]);
-
-  const handleRubroChange = (itemId: string, rubro: string) => {
-    onItemsChange(formData.items.map(it =>
-      it.id === itemId ? { ...it, rubro, subrubro: '', posicionPresupuestal: '', metrica: '' } : it
-    ));
-    setSubrubroMap(prev => ({ ...prev, [itemId]: [] }));
-    if (!rubro) return;
-    fetch(`/api/pospre?rubro=${encodeURIComponent(rubro)}`)
-      .then(r => r.json())
-      .then(data => setSubrubroMap(prev => ({ ...prev, [itemId]: Array.isArray(data) ? data : [] })))
-      .catch(() => setSubrubroMap(prev => ({ ...prev, [itemId]: [] })));
-  };
-
-  const handleSubrubroChange = (itemId: string, subrubro: string) => {
-    const opts = subrubroMap[itemId] || [];
-    const found = opts.find(o => o.subrubro === subrubro);
-    onItemsChange(formData.items.map(it =>
-      it.id === itemId
-        ? { ...it, subrubro, posicionPresupuestal: found?.charPospre ?? '', metrica: found?.metrica ?? '' }
-        : it
-    ));
-  };
-
-  const handleDirCorpChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setFormData(prev => ({ ...prev, directorCorporativo: val, director: '', gerente: '' }));
-  };
-
-  const handleDirAreaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setFormData(prev => ({ ...prev, director: val, gerente: '' }));
-  };
-
-  useEffect(() => {
-    if (!formData.macroproyecto) {
-      setProyectoOptions([]);
-      return;
-    }
-    fetch(`/api/proyectos?macroproyecto=${encodeURIComponent(formData.macroproyecto)}`)
-      .then(r => r.json())
-      .then(data => setProyectoOptions(Array.isArray(data) ? data : []))
-      .catch(() => setProyectoOptions([]));
-  }, [formData.macroproyecto]);
-
-  const handleProyectoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedProyecto = e.target.value;
-    const found = proyectoOptions.find(p => p.proyecto === selectedProyecto);
-    setFormData(prev => ({
-      ...prev,
-      proyecto: selectedProyecto,
-      idProyecto: found?.idMacroproyecto ?? prev.idProyecto,
-      tieneIdAsignado: found ? true : prev.tieneIdAsignado,
-    }));
-  };
-
+const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormData, onInputChange, onItemsChange, onSave, onSaveOnly, editingIndex, theme, errors, vigencia, budget }) => {
+  
   const calculatedValorEsperado = (Number(formData.impactoRiesgo) || 0) * ((Number(formData.probabilidadRiesgo) || 0) / 100);
+
+  const totalCopCalculated = formData.items.reduce((acc, item) => acc + (parseFloat(item.capexCop) || 0), 0);
+  const vpnValue = parseFloat(formData.businessCase.indicadores.vpn) || 0;
+  const calculatedVpnI = totalCopCalculated !== 0 ? (vpnValue / totalCopCalculated).toFixed(4) : '0.0000';
 
   useEffect(() => {
     const valStr = calculatedValorEsperado.toString();
@@ -238,18 +155,40 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
     }
   }, [formData.impactoRiesgo, formData.probabilidadRiesgo]);
 
+  useEffect(() => {
+    if (formData.businessCase.indicadores.vpnI !== calculatedVpnI) {
+      setFormData(prev => ({
+        ...prev,
+        businessCase: {
+          ...prev.businessCase,
+          indicadores: {
+            ...prev.businessCase.indicadores,
+            vpnI: calculatedVpnI
+          }
+        }
+      }));
+    }
+  }, [totalCopCalculated, formData.businessCase.indicadores.vpn]);
+
   if (!show) return null;
 
   const cardBg = theme === 'dark' ? 'bg-[#0b0e14]' : 'bg-[#FDFDFD]';
   const textColor = theme === 'dark' ? 'text-white' : 'text-gray-900';
   const subTextColor = theme === 'dark' ? 'text-gray-500' : 'text-gray-400';
   
-  const trmRaw = varsGlobales.find(v => v.ano === formData.ano)?.trm || varsGlobales[0]?.trm || '4217';
-  const trmProyectada = parseFloat(trmRaw.replace(/\./g, '').replace(',', '.')) || 4217;
-  const trmDisplay = new Intl.NumberFormat('es-CO').format(trmProyectada);
+  const trmProyectada = 4217;
 
-  const totalCopCalculated = formData.items.reduce((acc, item) => acc + (parseFloat(item.capexCop) || 0), 0);
   const totalUsdCalculated = totalCopCalculated / trmProyectada;
+  const vpnEsperadoI = totalUsdCalculated !== 0 
+    ? ((calculatedValorEsperado - totalUsdCalculated) / totalUsdCalculated).toFixed(4) 
+    : '0.0000';
+
+  const isFormValid = 
+    formData.macroproyecto && 
+    formData.proyecto && 
+    formData.nombreIniciativa && 
+    formData.descripcionBreve.length >= 50 &&
+    (!formData.tieneInterdependencias || (formData.gerentesInterdependencia && formData.gerentesInterdependencia.length > 0));
 
   const getInputClasses = (fieldName?: string, isReadOnly?: boolean) => {
     const hasError = fieldName ? !!errors[fieldName] : false;
@@ -287,7 +226,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
       rubro: '',
       subrubro: '',
       metrica: '',
-      tipo: '',
+      tipo: 'Hardware',
       proveedor: '',
       cantidad: '1',
       capexCop: '0',
@@ -646,22 +585,23 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Macroproyecto *</label>
                   <select name="macroproyecto" value={formData.macroproyecto} onChange={onInputChange} className={getInputClasses('macroproyecto')}>
                     <option value="">Seleccione...</option>
-                    {macroproyectoOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {MACROPROYECTO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Nombre del Proyecto *</label>
-                  <select name="proyecto" value={formData.proyecto} onChange={handleProyectoChange} className={getInputClasses('proyecto')} disabled={!formData.macroproyecto}>
-                    <option value="">{formData.macroproyecto ? 'Seleccione proyecto...' : 'Primero seleccione un macroproyecto'}</option>
-                    {proyectoOptions.map(opt => <option key={opt.proyecto} value={opt.proyecto}>{opt.proyecto}</option>)}
-                  </select>
+                  <input name="proyecto" value={formData.proyecto} onChange={onInputChange} className={getInputClasses('proyecto')} placeholder="Nombre general del proyecto" />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Nombre de la Iniciativa *</label>
+                  <input name="nombreIniciativa" value={formData.nombreIniciativa} onChange={onInputChange} className={getInputClasses('nombreIniciativa')} placeholder="Nombre específico de la iniciativa" />
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">KPI Estratégico Asociado *</label>
                   <div className="relative">
                     <select value={formData.businessCase?.contribucionKPIs || ''} onChange={(e) => handleKPIChange(e.target.value)} className={getInputClasses('contribucionKPIs')}>
                       <option value="">Seleccione KPI...</option>
-                      {kpiOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      {KPI_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     </select>
                     <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 rotate-90 pointer-events-none" />
                   </div>
@@ -673,7 +613,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                 
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">ID del Proyecto *</label>
-                  <input name="idProyecto" value={formData.idProyecto} onChange={onInputChange} className={`${getInputClasses('idProyecto', !!formData.proyecto || !formData.tieneIdAsignado)} font-mono uppercase text-[#EF3340]`} placeholder="CPX-XXXX" readOnly={!!formData.proyecto || !formData.tieneIdAsignado} />
+                  <input name="idProyecto" value={formData.idProyecto} onChange={onInputChange} className={`${getInputClasses('idProyecto', !formData.tieneIdAsignado)} font-mono uppercase text-[#EF3340]`} placeholder="CPX-XXXX" readOnly={!formData.tieneIdAsignado} />
                   <div className="flex flex-col gap-2 mt-2">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">¿Tiene ID asignado?</label>
                     <div className="flex gap-2 w-full max-w-[150px]">
@@ -686,13 +626,13 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Año *</label>
                   <select name="ano" value={formData.ano || ''} onChange={onInputChange} className={getInputClasses('ano')}>
                     <option value="">Seleccione Año...</option>
-                    {varsGlobales.map(v => <option key={v.ano} value={v.ano}>{v.ano}</option>)}
+                    {ANO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">TRM Proyectada *</label>
                   <div className="relative">
-                    <input value={trmDisplay} readOnly className={getInputClasses('', true)} />
+                    <input value="4.217" readOnly className={getInputClasses('', true)} />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">TASA FIJA</span>
                   </div>
                 </div>
@@ -725,24 +665,21 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <FormSection title="Gobierno & Responsables" icon={<UserCheck size={22} />} theme={theme} textColor={textColor} cols={1} hFull>
                     <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Director Corporativo *</label>
-                      <select name="directorCorporativo" value={formData.directorCorporativo} onChange={handleDirCorpChange} className={getInputClasses('directorCorporativo')}>
+                      <select name="directorCorporativo" value={formData.directorCorporativo} onChange={onInputChange} className={getInputClasses('directorCorporativo')}>
                         <option value="">Seleccione...</option>
-                        {dirCorpOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        {DIRECTOR_CORP_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                     </div>
                     <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Director de Área *</label>
-                      <select name="director" value={formData.director} onChange={handleDirAreaChange} className={getInputClasses('director')} disabled={!formData.directorCorporativo}>
-                        <option value="">{formData.directorCorporativo ? 'Seleccione...' : 'Primero seleccione Director Corporativo'}</option>
-                        {dirAreaOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      <select name="director" value={formData.director} onChange={onInputChange} className={getInputClasses('director')}>
+                        <option value="">Seleccione...</option>
+                        {DIRECTOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                     </div>
                     <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Gerente Líder *</label>
-                      <select name="gerente" value={formData.gerente} onChange={onInputChange} className={getInputClasses('gerente')} disabled={!formData.director}>
-                        <option value="">{formData.director ? 'Seleccione...' : 'Primero seleccione Director de Área'}</option>
-                        {gerenteOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                      </select>
+                      <input name="gerente" value={formData.gerente} onChange={onInputChange} className={getInputClasses()} placeholder="Nombre Gerente" />
                     </div>
                   </FormSection>
                 </div>
@@ -780,7 +717,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <div className="flex items-center gap-4 bg-gray-50/50 px-6 py-2 rounded-2xl border border-gray-100 shadow-inner">
                     <div className="flex flex-col">
                       <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">TRM Proyectada</span>
-                      <span className="text-[12px] font-black text-[#EF3340]">{trmDisplay} <span className="text-[8px] text-gray-400 ml-1">TASA FIJA</span></span>
+                      <span className="text-[12px] font-black text-[#EF3340]">4.217 <span className="text-[8px] text-gray-400 ml-1">TASA FIJA</span></span>
                     </div>
                   </div>
                 }
@@ -808,27 +745,23 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                         return (
                           <tr key={item.id} className="hover:bg-red-50/10 transition-colors">
                             <td className="px-2 py-4">
-                              <select value={item.rubro} onChange={(e) => handleRubroChange(item.id, e.target.value)} className={getInputClasses()}>
+                              <select value={item.rubro} onChange={(e) => updateItem(item.id, 'rubro', e.target.value)} className={getInputClasses()}>
                                 <option value="">Seleccione...</option>
-                                {rubroOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                {RUBRO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
                             </td>
                             <td className="px-2 py-4">
-                              <select value={item.subrubro} onChange={(e) => handleSubrubroChange(item.id, e.target.value)} className={getInputClasses()} disabled={!item.rubro}>
-                                <option value="">{item.rubro ? 'Seleccione...' : 'Primero seleccione Rubro'}</option>
-                                {(subrubroMap[item.id] || []).map(opt => <option key={opt.subrubro} value={opt.subrubro}>{opt.subrubro}</option>)}
-                              </select>
+                              <input value={item.subrubro} onChange={(e) => updateItem(item.id, 'subrubro', e.target.value)} className={getInputClasses()} placeholder="Subrubro técnico" />
                             </td>
                             <td className="px-2 py-4">
-                              <input value={item.posicionPresupuestal} readOnly className={`${getInputClasses('', true)} font-mono uppercase text-[#EF3340]`} placeholder="Auto desde BD" />
+                              <input value={item.posicionPresupuestal} onChange={(e) => updateItem(item.id, 'posicionPresupuestal', e.target.value)} className={`${getInputClasses()} font-mono uppercase text-[#EF3340]`} placeholder="Ej. PP123" />
                             </td>
                             <td className="px-2 py-4">
-                              <input value={item.metrica} readOnly className={getInputClasses('', true)} placeholder="Auto desde BD" />
+                              <input value={item.metrica} onChange={(e) => updateItem(item.id, 'metrica', e.target.value)} className={getInputClasses()} placeholder="Ej. Sitios, Licencias" />
                             </td>
                             <td className="px-2 py-4">
                               <select value={item.tipo} onChange={(e) => updateItem(item.id, 'tipo', e.target.value)} className={getInputClasses()}>
-                                <option value="">Seleccione...</option>
-                                {tipoServicioOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                {TIPO_ITEM_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
                             </td>
                             <td className="px-2 py-4">
@@ -882,7 +815,7 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                   <input value={totalCopCalculated.toLocaleString('es-CO')} readOnly className={`${getInputClasses('', true)} font-black text-2xl text-emerald-600`} />
                 </div>
                 <div className="space-y-3">
-                  <label className={`text-[10px] font-black uppercase tracking-widest ${subTextColor} ml-1`}>Monto en USD (TRM Proyectada: {trmDisplay})</label>
+                  <label className={`text-[10px] font-black uppercase tracking-widest ${subTextColor} ml-1`}>Monto en USD (TRM Proyectada: 4.217)</label>
                   <input value={totalUsdCalculated.toLocaleString('es-CO', { maximumFractionDigits: 2 })} readOnly className={`${getInputClasses('', true)} font-black text-2xl text-blue-600`} />
                 </div>
               </FormSection>
@@ -1053,7 +986,9 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                                     <FileUp size={24} />
                                   </div>
                                   <div className="flex-1 space-y-2 w-full">
-                                    <label className="text-[9px] font-black text-amber-600 uppercase tracking-widest block ml-1">Anexo Soporte de Riesgo (Artefacto) *</label>
+                                    <label className="text-[9px] font-black text-amber-600 uppercase tracking-widest block ml-1">
+                                      Anexo Soporte de Riesgo (Artefacto) {!['CRECIMIENTO_EBITDA', 'NEGOCIOS_ADYACENTES'].some(c => formData.categoriasEstrategicas.includes(c)) && '*'}
+                                    </label>
                                     <div className="relative">
                                       <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={14} />
                                       <input 
@@ -1068,9 +1003,11 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                               </div>
                             </div>
 
-                            <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                            <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                                 <div className="space-y-3">
-                                  <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest block ml-1">VALOR ESPERADO (USD) *</label>
+                                  <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest block ml-1">
+                                    VALOR ESPERADO (USD) {!['CRECIMIENTO_EBITDA', 'NEGOCIOS_ADYACENTES'].some(c => formData.categoriasEstrategicas.includes(c)) && '*'}
+                                  </label>
                                   <div className="relative">
                                     <Coins className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
                                     <input 
@@ -1082,6 +1019,23 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                                     />
                                   </div>
                                 </div>
+
+                                <div className="space-y-3">
+                                  <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest block ml-1">
+                                    VPN(Esperado)/I
+                                  </label>
+                                  <div className="relative">
+                                    <Activity className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
+                                    <input 
+                                      type="text" 
+                                      readOnly
+                                      value={vpnEsperadoI} 
+                                      className={`${getInputClasses('', true)} pl-10 border-amber-200 focus:border-amber-500 font-black text-emerald-600`} 
+                                    />
+                                  </div>
+                                  <p className="text-[8px] font-bold text-gray-400 ml-1">(Val. Esp - Monto USD) / Monto USD</p>
+                                </div>
+
                                 <div className={`p-6 h-[72px] rounded-2xl flex items-center justify-between border ${getHeatmapColor(matrixValue)}`}>
                                   <div className="flex items-center gap-4">
                                     <ShieldCheck size={28} />
@@ -1105,7 +1059,9 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                         <FileUp size={32} />
                       </div>
                       <div className="flex-1 space-y-3 w-full">
-                        <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest block ml-1">Soporte de Caso de Negocio (Artefacto) *</label>
+                        <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest block ml-1">
+                          Soporte de Caso de Negocio (Artefacto) {!['MANTENIMIENTO', 'PROTECCION_EBITDA'].some(c => formData.categoriasEstrategicas.includes(c)) && '*'}
+                        </label>
                         <div className="relative">
                           <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
                           <input 
@@ -1127,15 +1083,30 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
                         </div>
                         
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1"><Coins size={10} /> VPN (COP)</label>
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                            <Coins size={10} /> VPN (COP) {!['MANTENIMIENTO', 'PROTECCION_EBITDA'].some(c => formData.categoriasEstrategicas.includes(c)) && '*'}
+                          </label>
                           <input 
                             type="text" 
                             value={formatWithSeparators(formData.businessCase.indicadores.vpn)} 
                             onChange={(e) => handleIndicadorChange('vpn', e.target.value)}
-                            className={`${getInputClasses()} ${getValidationClasses(formData.businessCase.indicadores.vpn)}`}
+                            className={`${getInputClasses('vpn')} ${getValidationClasses(formData.businessCase.indicadores.vpn)}`}
                             placeholder="Separador de miles"
                           />
                           <p className="text-[8px] font-bold text-emerald-600 ml-1">{formatCurrency(formData.businessCase.indicadores.vpn || 0)}</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                            <Activity size={10} /> VPN/I
+                          </label>
+                          <input 
+                            type="text" 
+                            value={formData.businessCase.indicadores.vpnI || '0.00'} 
+                            readOnly
+                            className={getInputClasses('vpnI', true)}
+                          />
+                          <p className="text-[8px] font-bold text-gray-400 ml-1">VPN / Monto Total COP</p>
                         </div>
                     </div>
                   </div>
@@ -1143,12 +1114,18 @@ const ProjectFormModal: React.FC<Props> = ({ show, onClose, formData, setFormDat
               </FormSection>
 
               <div className={`pt-12 mt-12 border-t flex flex-col md:flex-row justify-end gap-6 ${theme === 'dark' ? 'border-white/5' : 'border-gray-100'}`}>
-                <button type="button" onClick={onClose} disabled={isSaving} className={`px-10 py-5 text-[11px] font-black rounded-3xl border transition-all uppercase tracking-widest ${isSaving ? 'opacity-40 cursor-not-allowed' : ''} ${theme === 'dark' ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 text-gray-500 hover:bg-gray-50 shadow-sm'}`}>Descartar Cambios</button>
-                <button type="button" onClick={onSaveOnly} disabled={isSaving} className={`px-10 py-5 text-[11px] font-black rounded-3xl border transition-all uppercase tracking-widest flex items-center justify-center gap-3 ${isSaving ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''} ${theme === 'dark' ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-gray-200 text-gray-600 hover:bg-gray-50 shadow-sm'}`}>
-                  {isSaving
-                    ? <><svg className="animate-spin" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><circle cx={12} cy={12} r={10} strokeOpacity={0.25}/><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/></svg> Guardando...</>
-                    : <><Save size={18} /> Guardar</>
-                  }
+                <button type="button" onClick={onClose} className={`px-10 py-5 text-[11px] font-black rounded-3xl border transition-all uppercase tracking-widest ${theme === 'dark' ? 'border-white/10 text-gray-400 hover:bg-white/5' : 'border-gray-200 text-gray-500 hover:bg-gray-50 shadow-sm'}`}>Descartar Cambios</button>
+                <button 
+                  type="button" 
+                  onClick={onSaveOnly} 
+                  disabled={!isFormValid}
+                  className={`px-10 py-5 text-[11px] font-black rounded-3xl border transition-all uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    theme === 'dark' 
+                      ? 'border-white/10 text-gray-300 hover:bg-white/5' 
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50 shadow-sm'
+                  }`}
+                >
+                  <Save size={18} /> Guardar
                 </button>
               </div>
               

@@ -18,7 +18,6 @@ interface Props {
   onLogin: (u: User) => void;
 }
 
-
 const Login: React.FC<Props> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,35 +46,21 @@ const Login: React.FC<Props> = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/login', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
+        body: JSON.stringify({ email: email.toLowerCase(), password }),
       });
 
       const data = await res.json();
 
-      if (res.status === 500) {
-        setError('Error del servidor. Verifique la conexión con la base de datos.');
-        return;
+      if (data.success) {
+        onLogin(data.user as User);
+      } else {
+        setError('Acceso Denegado: ' + data.message);
       }
-
-      if (!res.ok || !data.success) {
-        setError('Acceso Denegado: Credenciales incorrectas para el entorno corporativo');
-        return;
-      }
-
-      const u = data.user;
-      onLogin({
-        id:     String(u.id),
-        name:   u.name,
-        email:  u.email,
-        role:   u.role,
-        area:   u.area ?? '',
-        status: u.status,
-      });
     } catch {
-      setError('Error de conexión con el servidor. Intente nuevamente.');
+      setError('Error de conexión con el servidor');
     } finally {
       setLoading(false);
     }
@@ -139,7 +124,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
           <div className="space-y-12">
             <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
               <h2 className="text-6xl font-black text-white tracking-tighter leading-[0.85] mb-8">
-                Sophie orquestando la <br />
+                Sofia orquestando la <br />
                 <span className="text-[#EF3340]">infraestructura</span> <br />
                 del mañana.
               </h2>
@@ -166,7 +151,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
         </div>
 
         <div className="absolute bottom-12 left-24 text-[10px] font-black text-gray-500 uppercase tracking-widest animate-in fade-in duration-1000 delay-500">
-          <span>Sophie • Claro Colombia • 2027</span>
+          <span>Sofia • Claro Colombia • 2026</span>
         </div>
       </div>
 
@@ -186,7 +171,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
           <div className="text-center mb-16">
             <h1 className="text-4xl font-black text-gray-900 mb-3 tracking-tighter leading-tight">
               Portal <br />
-              <span className="text-[#EF3340]">Sophie</span>
+              <span className="text-[#EF3340]">Sofia</span>
             </h1>
             <div className="w-12 h-1 bg-[#EF3340] mx-auto mb-4 rounded-full"></div>
             <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em]">
@@ -240,16 +225,13 @@ const Login: React.FC<Props> = ({ onLogin }) => {
               ) : (
                 <>
                   <LogIn size={20} />
-                  ENTRAR A SOPHIE
+                  ENTRAR A SOFIA
                   <ChevronRight size={18} className="opacity-50" />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-12 text-center">
-             <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Acceso con usuarios registrados en CAPEX Central</p>
-          </div>
         </div>
       </div>
     </div>

@@ -33,7 +33,6 @@ import {
   LayoutDashboard
 } from 'lucide-react';
 import { ProjectRow, BudgetLineItem } from '../Planning';
-import { getInvestmentCommitteeVeredict } from '../../services/gemini';
 
 interface Props {
   rows: ProjectRow[];
@@ -54,6 +53,37 @@ const KPI_OPTIONS = [
   "REDUCCIÓN DE MTTR",
   "MONETIZACIÓN DE DATOS"
 ];
+
+const RISK_MATRIX_SCORES: Record<number, number[]> = {
+  1: [1, 2, 3, 4, 5],
+  2: [2, 4, 6, 7, 8],
+  3: [6, 9, 10, 11, 13],
+  4: [12, 14, 15, 16, 17],
+  5: [16, 18, 20, 22, 25]
+};
+
+const mapProbToScore = (p: number): number => {
+  if (p < 1) return 1;
+  if (p <= 20) return 2;
+  if (p <= 50) return 3;
+  if (p <= 80) return 4;
+  return 5;
+};
+
+const mapImpactToScore = (i: number): number => {
+  if (i <= 500000) return 1;
+  if (i <= 2000000) return 2;
+  if (i <= 10000000) return 3;
+  if (i <= 30000000) return 4;
+  return 5;
+};
+
+const getHeatmapColor = (score: number) => {
+  if (score >= 20) return 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,51,64,0.3)]';
+  if (score >= 12) return 'bg-orange-500 text-white';
+  if (score >= 6) return 'bg-yellow-400 text-gray-900';
+  return 'bg-emerald-500 text-white';
+};
 
 const formatCurrency = (val: string | number) => {
   const num = typeof val === 'string' ? parseFloat(val) : val;
@@ -177,8 +207,6 @@ const BooleanCheck = ({ label, value }: { label: string, value: boolean }) => (
 const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModify = true }) => {
   const [selectedMacro, setSelectedMacro] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [loadingAI, setLoadingAI] = useState(false);
-  const [savingScorecard, setSavingScorecard] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'GO' | 'NO-GO' | 'PIVOT' | 'SIN DECISIÓN'>('ALL');
 
   const textColor = theme === 'dark' ? 'text-white' : 'text-gray-900';
@@ -224,6 +252,14 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
     return (vpn / capex).toFixed(2);
   }, [selectedProject]);
 
+  const vpnEsperadoI = useMemo(() => {
+    if (!selectedProject) return "0.0000";
+    const trm = 4217;
+    const montoUsd = (parseFloat(selectedProject.presupuestoCop) || 0) / trm;
+    const valorEsperadoUsd = (selectedProject.impactoRiesgo || 0) * ((selectedProject.probabilidadRiesgo || 0) / 100);
+    return montoUsd !== 0 ? ((valorEsperadoUsd - montoUsd) / montoUsd).toFixed(4) : '0.0000';
+  }, [selectedProject]);
+
   const handleSimulatePressureTest = () => {
     const newRows = rows.map(r => {
       if (r.estadoSoporte !== 'APROBADO') return r;
@@ -235,7 +271,7 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
         scorecard: {
           pilarEstrategico: randomScore(), pilarFinanciero: randomScore(), pilarRiesgo: randomScore(),
           pilarEquipo: randomScore(), pilarUrgencia: randomScore(), decisionComite: 'GO' as const,
-          condicionObligatoria: 'Validación técnica por simulación exitosa Sophie AI.',
+          condicionObligatoria: 'Validación técnica por simulación exitosa Sofia AI.',
           aiAnalysis: {
             veredicto: 'APROBADO' as const,
             preguntaAsesina: "¿Cómo asegura que esta inversión no sea canibalizada por tecnologías legacy?",
@@ -308,212 +344,126 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
     onUpdateRows(newRows);
   };
 
-  const handlePersistirActa = async () => {
-    if (!selectedProject?.dbId) return;
-    setSavingScorecard(true);
-    try {
-      await fetch('/api/guardar-paso3', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dbId:      selectedProject.dbId,
-          scorecard: selectedProject.scorecard
-        })
-      });
-      // Marcar la fila como persistida en el estado local (sin necesidad de refresh)
-      const newRows = rows.map(r =>
-        r.idProyecto === selectedProjectId ? { ...r, scorecardPersistido: true } : r
-      );
-      onUpdateRows(newRows);
-    } catch (err) {
-      console.error('❌ Error guardando acta:', err);
-    } finally {
-      setSavingScorecard(false);
-    }
-  };
-
-  const handleCallAI = async () => {
-    if (!selectedProject) return;
-    setLoadingAI(true);
-    try {
-      const result = await getInvestmentCommitteeVeredict(selectedProject);
-      const newRows: ProjectRow[] = rows.map(r => {
-        if (r.idProyecto === selectedProjectId) {
-          return {
-            ...r,
-            scorecard: {
-              ...r.scorecard!,
-              pilarEstrategico: result.puntuaciones.estrategia,
-              pilarFinanciero: result.puntuaciones.finanzas,
-              pilarRiesgo: result.puntuaciones.riesgo,
-              pilarEquipo: result.puntuaciones.ejecucion,
-              pilarUrgencia: result.puntuaciones.urgencia,
-              decisionComite: (result.estado === 'APROBADO' ? 'GO' : result.estado === 'RECHAZADO' ? 'NO-GO' : 'PIVOT') as 'GO' | 'NO-GO' | 'PIVOT',
-              aiAnalysis: {
-                veredicto: result.estado as 'APROBADO' | 'RECHAZADO' | 'CONDICIONADO',
-                preguntaAsesina: result.pregunta_de_cierre,
-                razonesCriticas: {
-                  estrategia: result.justificaciones.estrategia,
-                  roi: result.justificaciones.finanzas,
-                  riesgo: result.justificaciones.riesgo,
-                  equipo: result.justificaciones.ejecucion,
-                  urgencia: result.justificaciones.urgencia
-                }
-              }
-            }
-          };
-        }
-        return r;
-      });
-      onUpdateRows(newRows);
-    } catch (err) {
-      alert("Error en el algoritmo de inversión. Por favor reintente.");
-    } finally {
-      setLoadingAI(false);
-    }
-  };
-
   return (
     <div className="animate-in fade-in slide-in-from-left-4 duration-700 space-y-10 pb-20">
       <div className="flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="space-y-1.5 text-center md:text-left">
           <h3 className={`text-3xl font-black tracking-tighter ${textColor}`}>3. Pressure Test</h3>
           <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em] leading-relaxed">
-            AUDITORÍA DE CAPITAL & FILTRADO ESTRATÉGICO SOPHIE
+            AUDITORÍA DE CAPITAL & FILTRADO ESTRATÉGICO SOFIA
           </p>
         </div>
         
         <div className="flex items-center gap-4">
-          {/* SIMULAR AUDITORÍA DESHABILITADO
-          {canModify && approvedRows.length > 0 && (
-            <button
-              type="button"
-              onClick={handleSimulatePressureTest}
-              className="px-10 py-5 rounded-[2rem] text-[11px] font-black uppercase tracking-widest flex items-center gap-4 bg-gradient-to-r from-purple-600 to-indigo-700 text-white hover:scale-105 transition-all shadow-xl active:scale-95 border border-white/10"
-            >
-              <Zap size={18} className="text-yellow-300 animate-pulse" />
-              SIMULAR AUDITORÍA
-            </button>
-          )}
-          */}
-
-          {/* GEMINI REAL-TIME AUDIT DESHABILITADO
-          {selectedProject && (
-            <button
-              type="button"
-              onClick={handleCallAI}
-              disabled={loadingAI}
-              className={`px-12 py-5 rounded-[2rem] text-[11px] font-black uppercase tracking-widest flex items-center gap-4 transition-all shadow-xl active:scale-95 ${
-                loadingAI ? 'bg-indigo-50 text-indigo-400' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-500/20'
-              }`}
-            >
-              {loadingAI ? <RefreshCw size={18} className="animate-spin" /> : <BrainCircuit size={18} />}
-              {loadingAI ? 'ANALIZANDO DATA...' : 'GEMINI REAL-TIME AUDIT'}
-            </button>
-          )}
-          */}
         </div>
       </div>
 
       <div className="space-y-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           {/* PANEL IZQUIERDO: WORKSPACE AMPLIADO (5/12) */}
-          <div className={`lg:col-span-5 p-8 rounded-[4rem] border ${cardBg} shadow-2xl flex flex-col min-h-[600px]`}>
-            <div className="flex items-center justify-between mb-10 px-4">
-              <div className="flex items-center gap-3">
-                 <div className="p-3 bg-red-50 rounded-2xl text-[#EF3340]">
-                    <Layers size={22} />
+          {/* CORRECCIÓN 1 APLICADA AQUÍ */}
+          <div className={`lg:col-span-5 p-10 rounded-[4rem] border ${cardBg} shadow-2xl flex flex-col min-h-[600px]`}>
+            
+            <div className="flex items-center justify-between mb-8 px-2">
+              <div className="flex items-center gap-4">
+                 <div className="p-3.5 bg-red-50 rounded-2xl text-[#EF3340]">
+                    <Layers size={24} />
                  </div>
-                 <h4 className="text-[14px] font-black text-gray-900 uppercase tracking-widest leading-none">Workspace de Auditoría</h4>
+                 <h4 className="text-[15px] font-black text-gray-900 uppercase tracking-widest leading-none">Workspace de Auditoría</h4>
               </div>
-              <button className="px-5 py-2.5 bg-gray-50 rounded-xl text-[10px] font-black text-gray-400 flex items-center gap-2 uppercase tracking-widest border border-gray-100 hover:bg-gray-100 transition-colors">
-                 <Filter size={12} /> Filtros
+              <button className="px-6 py-3 bg-white shadow-sm rounded-2xl text-[9px] font-black text-gray-500 flex items-center gap-2 uppercase tracking-widest border border-gray-100 hover:bg-gray-50 transition-colors">
+                 <Filter size={14} /> Filtros
               </button>
             </div>
 
             {/* FILTROS DE ESTADO */}
-            <div className="bg-[#f8f9fb] p-6 rounded-[3.5rem] mb-10 border border-gray-100 flex flex-col gap-5">
-               <div className="flex items-center justify-between px-4">
+            {/* CORRECCIÓN 2 y 3 APLICADA AQUÍ */}
+            <div className="bg-[#f8f9fb] p-8 rounded-[3rem] mb-10 border border-gray-100 flex flex-col gap-6 shadow-inner">
+               <div className="flex items-center justify-between px-2">
                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Vista de Portafolio</span>
-                  <span className="text-[9px] font-bold text-gray-300 italic">Sophie Engine v2</span>
+                  <span className="text-[10px] font-bold text-gray-400 italic">Sofia Engine v2</span>
                </div>
-               <div className="grid grid-cols-1 gap-3">
-                  <FilterTab 
-                    label="Todas las Iniciativas" 
-                    icon={<Layers size={10} />}
-                    count={counts.ALL} 
-                    active={statusFilter === 'ALL'} 
-                    onClick={() => setStatusFilter('ALL')} 
-                    color="gray" 
-                  />
-                  <div className="grid grid-cols-2 gap-3">
+               
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
                     <FilterTab 
-                      label="Pendientes" 
-                      icon={<Clock size={10} />}
-                      count={counts['SIN DECISIÓN']} 
-                      active={statusFilter === 'SIN DECISIÓN'} 
-                      onClick={() => setStatusFilter('SIN DECISIÓN')} 
+                      label="Todas las Iniciativas" 
+                      icon={<Layers size={14} />}
+                      count={counts.ALL} 
+                      active={statusFilter === 'ALL'} 
+                      onClick={() => setStatusFilter('ALL')} 
                       color="gray" 
                     />
-                    <FilterTab 
-                      label="Aprobados GO" 
-                      icon={<CheckCircle2 size={10} />}
-                      count={counts.GO} 
-                      active={statusFilter === 'GO'} 
-                      onClick={() => setStatusFilter('GO')} 
-                      color="emerald" 
-                    />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <FilterTab 
-                      label="Rechazados" 
-                      icon={<XCircle size={10} />}
-                      count={counts['NO-GO']} 
-                      active={statusFilter === 'NO-GO'} 
-                      onClick={() => setStatusFilter('NO-GO')} 
-                      color="red" 
-                    />
-                    <FilterTab 
-                      label="En Pivot" 
-                      icon={<CircleDot size={10} />}
-                      count={counts.PIVOT} 
-                      active={statusFilter === 'PIVOT'} 
-                      onClick={() => setStatusFilter('PIVOT')} 
-                      color="amber" 
-                    />
-                  </div>
+                  
+                  <FilterTab 
+                    label="Pendientes" 
+                    icon={<Clock size={14} />}
+                    count={counts['SIN DECISIÓN']} 
+                    active={statusFilter === 'SIN DECISIÓN'} 
+                    onClick={() => setStatusFilter('SIN DECISIÓN')} 
+                    color="gray" 
+                  />
+                  
+                  <FilterTab 
+                    label="Aprobados GO" 
+                    icon={<CheckCircle2 size={14} />}
+                    count={counts.GO} 
+                    active={statusFilter === 'GO'} 
+                    onClick={() => setStatusFilter('GO')} 
+                    color="emerald" 
+                  />
+                  
+                  <FilterTab 
+                    label="Rechazados" 
+                    icon={<XCircle size={14} />}
+                    count={counts['NO-GO']} 
+                    active={statusFilter === 'NO-GO'} 
+                    onClick={() => setStatusFilter('NO-GO')} 
+                    color="red" 
+                  />
+                  
+                  <FilterTab 
+                    label="En Pivot" 
+                    icon={<CircleDot size={14} />}
+                    count={counts.PIVOT} 
+                    active={statusFilter === 'PIVOT'} 
+                    onClick={() => setStatusFilter('PIVOT')} 
+                    color="amber" 
+                  />
                </div>
             </div>
 
-            <div className="space-y-5 flex-1 overflow-y-auto pr-2 max-h-[450px] px-2">
+            {/* LISTA DE PROYECTOS DESPLEGABLES */}
+            <div className="space-y-4 flex-1 overflow-y-auto pr-3 custom-scrollbar max-h-[450px]">
               {Object.keys(macroGroups).length > 0 ? Object.keys(macroGroups).map(macro => (
                 <div key={macro} className="space-y-2 animate-in slide-in-from-bottom-2">
                    <button 
                      type="button"
                      onClick={() => setSelectedMacro(selectedMacro === macro ? null : macro)}
-                     className={`w-full flex items-center justify-between p-6 rounded-3xl border transition-all duration-300 ${
+                     className={`w-full flex items-center justify-between p-5 rounded-3xl border transition-all duration-300 ${
                        selectedMacro === macro 
-                       ? 'bg-red-50 border-red-200 text-[#EF3340] shadow-md scale-[1.02]' 
+                       ? 'bg-red-50 border-red-200 text-[#EF3340] shadow-sm scale-[1.01]' 
                        : 'bg-white border-gray-100 text-gray-500 hover:border-red-100 shadow-sm'
                      }`}
                    >
                      <div className="flex items-center gap-4">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${selectedMacro === macro ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-400'}`}>
-                           <Calculator size={14} />
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${selectedMacro === macro ? 'bg-[#EF3340] text-white' : 'bg-gray-50 text-gray-400'}`}>
+                           <Calculator size={16} />
                         </div>
-                        <span className="text-[11px] font-black uppercase tracking-tight">{macro}</span>
+                        <span className="text-[12px] font-black uppercase tracking-tight">{macro}</span>
                      </div>
                      <div className="flex items-center gap-4">
-                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${selectedMacro === macro ? 'bg-red-100 text-red-600' : 'bg-gray-50 text-gray-400'}`}>{macroGroups[macro].length}</span>
-                        <ChevronDown size={16} className={`transition-transform duration-500 ${selectedMacro === macro ? 'rotate-180' : ''}`} />
+                        <span className={`px-3 py-1 rounded-xl text-[11px] font-black ${selectedMacro === macro ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'}`}>{macroGroups[macro].length}</span>
+                        <ChevronDown size={18} className={`transition-transform duration-500 ${selectedMacro === macro ? 'rotate-180' : ''}`} />
                      </div>
                    </button>
                    
                    {selectedMacro === macro && (
-                     <div className="px-4 pt-2 pb-6 space-y-4 animate-in slide-in-from-top-4">
-                        <div className="p-1.5 bg-gray-50 rounded-[2rem] border border-gray-100 shadow-inner">
+                     <div className="px-2 pt-2 pb-4 space-y-4 animate-in slide-in-from-top-4">
+                        <div className="p-2 bg-gray-50 rounded-[2rem] border border-gray-100 shadow-inner">
                           <select 
-                            className="w-full p-5 rounded-[1.5rem] border-none bg-white text-[12px] font-black outline-none shadow-sm cursor-pointer hover:bg-gray-50 transition-colors uppercase tracking-tight"
+                            className="w-full p-4 rounded-[1.5rem] border-none bg-white text-[12px] font-black outline-none shadow-sm cursor-pointer hover:bg-gray-50 transition-colors uppercase tracking-tight"
                             value={selectedProjectId || ''}
                             onChange={(e) => setSelectedProjectId(e.target.value)}
                           >
@@ -527,11 +477,11 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
                    )}
                 </div>
               )) : (
-                <div className="p-16 text-center border-3 border-dashed border-gray-100 rounded-[3.5rem] flex flex-col items-center justify-center bg-gray-50/50">
-                  <div className="p-6 bg-white rounded-full shadow-sm mb-6">
-                    <Inbox size={48} className="text-gray-200" />
+                <div className="p-16 mt-4 text-center border-2 border-dashed border-gray-200 rounded-[3rem] flex flex-col items-center justify-center bg-gray-50/50">
+                  <div className="p-5 bg-white rounded-full shadow-sm mb-5">
+                    <Inbox size={40} className="text-gray-300" />
                   </div>
-                  <p className="text-[12px] font-black text-gray-400 uppercase tracking-widest max-w-[250px] leading-relaxed">No hay proyectos en este estado bajo los criterios actuales.</p>
+                  <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest max-w-[200px] leading-relaxed">No hay proyectos en este estado.</p>
                 </div>
               )}
             </div>
@@ -606,18 +556,31 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
                   </ExpandableSection>
 
                   <ExpandableSection title="3. Perfil de Riesgo Técnico" icon={<AlertTriangle size={18} />}>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                      <div className="p-4 bg-gray-50 rounded-2xl text-center">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Probabilidad</p>
-                        <p className="text-xl font-black text-gray-900">{selectedProject.probabilidadRiesgo || 0}%</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-gray-50 rounded-2xl text-center">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Probabilidad</p>
+                          <p className="text-xl font-black text-gray-900">{selectedProject.probabilidadRiesgo || 0}%</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-2xl text-center">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Impacto</p>
+                          <p className="text-xl font-black text-gray-900">{formatUSD(selectedProject.impactoRiesgo || 0)}</p>
+                        </div>
+                        <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-center">
+                          <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">Valor Esperado</p>
+                          <p className="text-xl font-black text-red-600">{formatUSD(parseInt(selectedProject.cuantificacionRiesgoTecnico || '0'))}</p>
+                        </div>
+                        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-center">
+                          <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">VPN(Esperado)/I</p>
+                          <p className="text-xl font-black text-emerald-600">{vpnEsperadoI}</p>
+                        </div>
                       </div>
-                      <div className="p-4 bg-gray-50 rounded-2xl text-center">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Impacto</p>
-                        <p className="text-xl font-black text-gray-900">{formatUSD(selectedProject.impactoRiesgo || 0)}</p>
-                      </div>
-                      <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-center">
-                        <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">Valor Esperado</p>
-                        <p className="text-xl font-black text-red-600">{formatUSD(parseInt(selectedProject.cuantificacionRiesgoTecnico || '0'))}</p>
+                      <div className={`p-6 rounded-3xl border flex items-center justify-between ${getHeatmapColor(RISK_MATRIX_SCORES[mapImpactToScore(selectedProject.impactoRiesgo || 0)][mapProbToScore(selectedProject.probabilidadRiesgo || 0) - 1])}`}>
+                         <div className="flex items-center gap-3">
+                           <ShieldCheck size={24} />
+                           <span className="text-[11px] font-black uppercase tracking-widest">Severidad Matriz</span>
+                         </div>
+                         <span className="text-3xl font-black">{RISK_MATRIX_SCORES[mapImpactToScore(selectedProject.impactoRiesgo || 0)][mapProbToScore(selectedProject.probabilidadRiesgo || 0) - 1]}</span>
                       </div>
                     </div>
                     {selectedProject.matrizRiesgo && (
@@ -676,6 +639,10 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
                          <span className="text-[10px] font-black text-gray-500 uppercase">VPN Validación</span>
                          <span className="text-[12px] font-black text-emerald-600">{formatCurrency(selectedProject.businessCase.indicadores.vpn)}</span>
                       </div>
+                      <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
+                         <span className="text-[10px] font-black text-gray-500 uppercase">Índice VPN/I</span>
+                         <span className="text-[12px] font-black text-emerald-600">{selectedProject.businessCase.indicadores.vpnI || '0.00'}</span>
+                      </div>
                     </div>
                   </ExpandableSection>
                 </div>
@@ -685,7 +652,7 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
                 <div className="p-10 bg-gray-50 rounded-full border-4 border-dashed border-gray-100 mb-10 animate-pulse">
                   <FileText size={80} className="text-gray-200" />
                 </div>
-                <h3 className="text-2xl font-black text-gray-300 uppercase tracking-[0.2em] mb-4">Registro Maestro Sophie</h3>
+                <h3 className="text-2xl font-black text-gray-300 uppercase tracking-[0.2em] mb-4">Registro Maestro Sofia</h3>
                 <p className="text-[13px] font-bold text-gray-400 uppercase tracking-widest max-w-sm">Seleccione una iniciativa para iniciar la auditoría estratégica de capital.</p>
               </div>
             )}
@@ -715,7 +682,7 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
                             </div>
                             <div>
                                <h5 className="text-[16px] font-black text-indigo-950 uppercase tracking-tight">IA AUDIT: LA PREGUNTA CRÍTICA</h5>
-                               <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] italic mt-1">Análisis profundo por modelo Gemini 3.0</p>
+                               <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] italic mt-1">Análisis de Comité de Inversión Sofia</p>
                             </div>
                           </div>
 
@@ -766,16 +733,11 @@ const Step5PressureTest: React.FC<Props> = ({ rows, theme, onUpdateRows, canModi
                       />
                     </div>
 
-                    <button
+                    <button 
                       type="button"
-                      onClick={handlePersistirActa}
-                      disabled={savingScorecard}
-                      className="w-full flex items-center justify-center gap-5 bg-[#0b0e14] text-white py-8 rounded-[3rem] text-[13px] font-black uppercase tracking-[0.4em] hover:bg-[#EF3340] hover:scale-[1.01] transition-all shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] active:scale-95 group border-b-6 border-black/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
+                      className="w-full flex items-center justify-center gap-5 bg-[#0b0e14] text-white py-8 rounded-[3rem] text-[13px] font-black uppercase tracking-[0.4em] hover:bg-[#EF3340] hover:scale-[1.01] transition-all shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] active:scale-95 group border-b-6 border-black/20"
                     >
-                      {savingScorecard
-                        ? <><RefreshCw size={22} className="animate-spin" /> GUARDANDO...</>
-                        : <><Save size={22} className="group-hover:animate-bounce" /> PERSISTIR ACTA DE AUDITORÍA</>
-                      }
+                       <Save size={22} className="group-hover:animate-bounce" /> PERSISTIR ACTA DE AUDITORÍA
                     </button>
                   </div>
                 </div>
@@ -797,24 +759,35 @@ const FilterTab: React.FC<{
   color: 'emerald' | 'red' | 'amber' | 'gray' 
 }> = ({ label, count, active, onClick, icon, color }) => {
   const colors = {
-    emerald: active ? 'bg-[#10B981] text-white border-[#10B981] shadow-[0_15px_30px_rgba(16,185,129,0.2)] scale-[1.02]' : 'bg-white text-emerald-600 border-gray-100 hover:border-emerald-100 shadow-sm',
-    red: active ? 'bg-[#EF3340] text-white border-[#EF3340] shadow-[0_15px_30px_rgba(239,51,64,0.2)] scale-[1.02]' : 'bg-white text-red-600 border-gray-100 hover:border-red-100 shadow-sm',
-    amber: active ? 'bg-[#F59E0B] text-white border-[#F59E0B] shadow-[0_15px_30px_rgba(245,158,11,0.2)] scale-[1.02]' : 'bg-white text-amber-600 border-gray-100 hover:border-amber-100 shadow-sm',
-    gray: active ? 'bg-[#1a1f26] text-white border-[#1a1f26] shadow-[0_15px_30px_rgba(0,0,0,0.1)] scale-[1.02]' : 'bg-white text-gray-500 border-gray-100 hover:border-gray-200 shadow-sm',
+    emerald: active ? 'bg-[#10B981] text-white border-[#10B981] shadow-md scale-[1.02]' : 'bg-white text-emerald-600 border-gray-100 hover:border-emerald-200 shadow-sm',
+    red: active ? 'bg-[#EF3340] text-white border-[#EF3340] shadow-md scale-[1.02]' : 'bg-white text-red-600 border-gray-100 hover:border-red-200 shadow-sm',
+    amber: active ? 'bg-[#F59E0B] text-white border-[#F59E0B] shadow-md scale-[1.02]' : 'bg-white text-amber-600 border-gray-100 hover:border-amber-200 shadow-sm',
+    gray: active ? 'bg-[#1a1f26] text-white border-[#1a1f26] shadow-[0_10px_20px_rgba(0,0,0,0.15)] scale-[1.02]' : 'bg-white text-gray-500 border-gray-100 hover:border-gray-200 shadow-sm',
   };
 
   return (
     <button 
       onClick={onClick}
-      className={`relative flex items-center gap-6 p-6 rounded-[2.5rem] border transition-all duration-500 group active:scale-95 ${colors[color]}`}
+      // 1. Padding reducido (p-3 sm:p-4) y justificación forzada
+      className={`relative w-full flex items-center justify-between p-3 sm:p-4 rounded-[2rem] border transition-all duration-300 group active:scale-95 ${colors[color]}`}
     >
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${active ? 'bg-white/20 scale-110 shadow-inner' : 'bg-gray-50 group-hover:scale-105'}`}>
-        {icon}
+      {/* 2. overflow-hidden para que el texto nunca rompa el botón */}
+      <div className="flex items-center gap-3 overflow-hidden">
+        {/* 3. flex-shrink-0 evita que el ícono se aplaste. Tamaño reducido a w-9 h-9 */}
+        <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-500 ${active ? 'bg-white/20 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100 group-hover:text-gray-600'}`}>
+          {icon}
+        </div>
+        
+        {/* 4. leading-tight (interlineado cerrado) por si el texto baja a dos líneas */}
+        <div className="text-left">
+           <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider leading-tight ${active ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'}`}>
+             {label}
+           </p>
+        </div>
       </div>
-      <div className="flex-1 text-left">
-         <p className={`text-[12px] font-black uppercase tracking-widest ${active ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'}`}>{label}</p>
-      </div>
-      <div className={`px-4 py-1.5 rounded-xl text-[12px] font-black transition-all ${active ? 'bg-white text-gray-900 shadow-inner' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'}`}>
+
+      {/* 5. flex-shrink-0 en el número garantiza que NUNCA se salga del botón */}
+      <div className={`flex-shrink-0 ml-2 px-3 py-1.5 rounded-xl text-[10px] sm:text-[11px] font-black transition-all ${active ? 'bg-white text-gray-900 shadow-sm' : 'bg-gray-50 text-gray-500 border border-gray-100 group-hover:bg-gray-100'}`}>
         {count}
       </div>
     </button>

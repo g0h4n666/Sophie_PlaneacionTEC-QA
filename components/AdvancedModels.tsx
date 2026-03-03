@@ -14,14 +14,17 @@ import {
   Info,
   DollarSign,
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  BarChart3,
+  ExternalLink,
+  Activity
 } from 'lucide-react';
 
 interface Props {
   theme: 'light' | 'dark';
 }
 
-type ModelType = 'TELCO' | 'DATACENTER' | 'IT' | null;
+type ModelType = 'TELCO' | 'DATACENTER' | 'IT' | 'GRAFANA' | null;
 
 const AdvancedModels: React.FC<Props> = ({ theme }) => {
   const [activeModel, setActiveModel] = useState<ModelType>('TELCO'); // Defaulting to TELCO to match screen
@@ -41,6 +44,7 @@ const AdvancedModels: React.FC<Props> = ({ theme }) => {
         {activeModel === 'TELCO' && <TelcoModel theme={theme} />}
         {activeModel === 'DATACENTER' && <DatacenterModel theme={theme} />}
         {activeModel === 'IT' && <ITModel theme={theme} />}
+        {activeModel === 'GRAFANA' && <GrafanaModel theme={theme} />}
       </div>
     );
   }
@@ -83,6 +87,14 @@ const AdvancedModels: React.FC<Props> = ({ theme }) => {
           icon={<Cpu size={32} />} 
           color="text-emerald-500"
           onClick={() => setActiveModel('IT')}
+          theme={theme}
+        />
+        <SelectionCard 
+          title="Monitoreo Grafana" 
+          desc="Visualización en tiempo real de métricas operativas, dashboards de red y observabilidad." 
+          icon={<BarChart3 size={32} />} 
+          color="text-orange-500"
+          onClick={() => setActiveModel('GRAFANA')}
           theme={theme}
         />
       </div>
@@ -228,6 +240,77 @@ const ITModel: React.FC<{ theme: string }> = ({ theme }) => (
     <div className="space-y-6">
        <KPISmall label="Software Savings" val="14%" icon={<DollarSign size={16}/>} />
        <KPISmall label="Ops velocity" val="+32%" icon={<TrendingUp size={16}/>} />
+    </div>
+  </div>
+);
+
+/* MODELO GRAFANA */
+const GrafanaModel: React.FC<{ theme: string }> = ({ theme }) => (
+  <div className="space-y-8 animate-in fade-in duration-500">
+    <div className={`p-10 rounded-[3rem] border ${theme === 'dark' ? 'bg-[#0f1219] border-white/5' : 'bg-white border-gray-100'} shadow-xl`}>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+        <div className="flex items-center gap-6">
+          <div className="w-16 h-16 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/10">
+            <BarChart3 size={32} />
+          </div>
+          <div>
+            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Integración Grafana Enterprise</h3>
+            <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mt-1">Observabilidad de Red en Tiempo Real</p>
+          </div>
+        </div>
+        <button className="px-8 py-4 bg-orange-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:bg-orange-700 transition-all shadow-xl shadow-orange-500/20 active:scale-95">
+          <ExternalLink size={16} /> Abrir en Grafana Cloud
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <div className="aspect-video bg-gray-900 rounded-[2.5rem] border border-gray-800 overflow-hidden relative group">
+             <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/grafana/1200/800')] bg-cover bg-center opacity-40 group-hover:scale-105 transition-transform duration-1000"></div>
+             <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent"></div>
+             <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                   <div className="w-20 h-20 rounded-full bg-orange-600/20 border border-orange-500/30 flex items-center justify-center text-orange-500 animate-pulse">
+                      <Activity size={40} />
+                   </div>
+                   <p className="text-white font-black text-sm uppercase tracking-[0.3em]">Stream de Datos Activo</p>
+                </div>
+             </div>
+             <div className="absolute bottom-8 left-8 right-8 flex justify-between items-end">
+                <div className="space-y-2">
+                   <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Dashboard de Tráfico Core</p>
+                   <p className="text-xl font-black text-white tracking-tighter">Throughput Nacional: 4.2 Tbps</p>
+                </div>
+                <div className="flex gap-2">
+                   <div className="w-2 h-8 bg-orange-500 rounded-full"></div>
+                   <div className="w-2 h-12 bg-orange-500/60 rounded-full"></div>
+                   <div className="w-2 h-6 bg-orange-500/40 rounded-full"></div>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+           <div className="p-8 rounded-[2.5rem] bg-gray-50 border border-gray-100">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Métricas de Observabilidad</h4>
+              <div className="space-y-6">
+                 <VariableItem label="Latencia Promedio" val="12ms" />
+                 <VariableItem label="Packet Loss" val="0.002%" />
+                 <VariableItem label="Uptime SLA" val="99.998%" />
+                 <VariableItem label="Nodos Activos" val="14,205" />
+              </div>
+           </div>
+           
+           <div className="p-8 rounded-[2.5rem] bg-orange-600 text-white shadow-xl shadow-orange-500/20">
+              <div className="flex items-center gap-3 mb-4">
+                 <Zap size={20} />
+                 <h4 className="text-[10px] font-black uppercase tracking-widest">Alertas Críticas</h4>
+              </div>
+              <p className="text-2xl font-black tracking-tighter">0 Alertas</p>
+              <p className="text-[9px] font-bold opacity-80 uppercase mt-2">Sistema operando bajo parámetros normales</p>
+           </div>
+        </div>
+      </div>
     </div>
   </div>
 );

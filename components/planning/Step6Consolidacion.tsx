@@ -17,7 +17,8 @@ import {
   Gem,
   Activity,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Maximize2
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -36,12 +37,15 @@ import {
   Radar
 } from 'recharts';
 import { ProjectRow } from '../Planning';
+import ConsolidacionWorkspace from './Consolidation';
+import { useStep6WorkspaceStore } from './Consolidation/workspaceStore';
 
 interface Props {
   rows: ProjectRow[];
   theme: 'light' | 'dark';
   onFinalize: () => void;
   canModify: boolean;
+  trm: number;
 }
 
 const formatCurrency = (val: string | number) => {
@@ -72,12 +76,11 @@ const COLORS = {
   dark: '#0b0e14'
 };
 
-const Step6Consolidacion: React.FC<Props> = ({ rows: allRows, theme, onFinalize, canModify }) => {
-  // Solo mostrar iniciativas que hayan sido persistidas en Paso 3 (Pressure Test)
-  const rows = allRows.filter(r => r.scorecardPersistido === true);
+const Step6Consolidacion: React.FC<Props> = ({ rows, theme, onFinalize, canModify, trm }) => {
   const [availableCapex, setAvailableCapex] = useState<number>(15000000000); 
   const [hoveredProject, setHoveredProject] = useState<any | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const { openWorkspace } = useStep6WorkspaceStore();
 
   const textColor = theme === 'dark' ? 'text-white' : 'text-gray-900';
   const cardBg = theme === 'dark' ? 'bg-[#0f1219] border-white/5' : 'bg-white border-gray-100 shadow-sm';
@@ -132,7 +135,7 @@ const Step6Consolidacion: React.FC<Props> = ({ rows: allRows, theme, onFinalize,
         vpn: p.vpn
       }));
 
-    // Radar de Pilares (Paso 3)
+    // Radar de Pilares (Paso 3 - Pressure Test)
     const avgScores = { Estrategia: 0, Finanzas: 0, Riesgo: 0, Equipo: 0, Urgencia: 0 };
     if (approvedOnly.length > 0) {
       approvedOnly.forEach(p => {
@@ -168,7 +171,7 @@ const Step6Consolidacion: React.FC<Props> = ({ rows: allRows, theme, onFinalize,
   };
 
   const handleDownloadCSV = () => {
-    const headers = ["Ranking", "Macroproyecto", "ID Proyecto", "Nombre Iniciativa", "Categoria", "Inversion COP", "Score Sophie", "Estado Waterline"];
+    const headers = ["Ranking", "Macroproyecto", "ID Proyecto", "Nombre Iniciativa", "Categoria", "Inversion COP", "Score Sofia", "Estado Waterline"];
     const rowsCSV = analytics.projects.map((p, idx) => [
       idx + 1,
       `"${p.macroproyecto}"`,
@@ -181,11 +184,12 @@ const Step6Consolidacion: React.FC<Props> = ({ rows: allRows, theme, onFinalize,
     ]);
 
     const csvContent = [headers, ...rowsCSV].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Portafolio_Sophie_Consolidado_${new Date().getFullYear()}.csv`);
+    link.setAttribute("download", `Portafolio_Sofia_Consolidado_${new Date().getFullYear()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -196,6 +200,38 @@ const Step6Consolidacion: React.FC<Props> = ({ rows: allRows, theme, onFinalize,
   return (
     <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 space-y-10 pb-20 relative">
       
+      <ConsolidacionWorkspace 
+        rows={rows} 
+        theme={theme} 
+        onFinalize={onFinalize} 
+        canModify={canModify} 
+        trm={trm}
+        showLauncher={false}
+      />
+
+      {/* HEADER PASO 4 SEGÚN REFERENCIA */}
+      <div className={`p-10 rounded-[3.5rem] border ${cardBg} shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 mb-10`}>
+        <div className="flex flex-col">
+          <h2 className={`text-4xl font-black tracking-tighter ${textColor}`}>Paso 4 - Resumen & Consolidacion</h2>
+          <p className="text-sm font-medium text-gray-500 mt-1">
+            Herramienta avanzada en modal fullscreen para maximizar espacio útil.
+          </p>
+        </div>
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="px-6 py-3 bg-gray-50 border border-gray-100 rounded-2xl">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+              FUENTE: MYSQL LOCAL / PLANNING_STEP6_PORTFOLIO
+            </p>
+          </div>
+          <button 
+            onClick={openWorkspace}
+            className="px-10 py-4 bg-[#EF3340] text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-red-600 transition-all shadow-2xl shadow-red-200 active:scale-95 flex items-center gap-3"
+          >
+            <Maximize2 size={16} /> ABRIR FULLSCREEN
+          </button>
+        </div>
+      </div>
+
       {/* 1. KPIs SUPERIORES */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <KPICard label="PRESUPUESTO DISPONIBLE" value={formatCurrency(availableCapex)} subValue="Techo de Inversión" icon={<Calculator size={18} />} color="text-gray-500" />
@@ -325,7 +361,7 @@ const Step6Consolidacion: React.FC<Props> = ({ rows: allRows, theme, onFinalize,
         <div className="flex justify-between items-end border-b border-gray-50 pb-8">
            <div>
               <h2 className={`text-4xl font-black tracking-tighter ${textColor}`}>🌊 Priorización Estratégica</h2>
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-2">Iniciativas ordenadas por Sophie Score (Ponderado P2 + P3)</p>
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-2">Iniciativas ordenadas por Sofia Score (Ponderado P2 + P3 - Pressure Test)</p>
            </div>
            <div className="flex items-center gap-4">
               <div className="px-5 py-2.5 bg-red-50 text-[#EF3340] rounded-xl text-[10px] font-black border border-red-100">

@@ -50,7 +50,7 @@ const PortfolioModal: React.FC<Props> = ({ show, onClose, theme }) => {
 
             {/* Iniciativas Estratégicas */}
             <div className="space-y-6">
-              <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-4">Proyectos Flagship Q1-2027</h4>
+              <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-4">Proyectos Flagship Q1-2026</h4>
               {[1, 2, 3].map(i => (
                 <div key={i} className="flex items-center justify-between p-6 bg-white border border-gray-100 rounded-3xl hover:border-blue-500/30 transition-all group">
                    <div className="flex items-center gap-5">

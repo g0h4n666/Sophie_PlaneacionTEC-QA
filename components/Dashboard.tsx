@@ -93,6 +93,8 @@ const Dashboard: React.FC<Props> = ({ theme, budget }) => {
   };
 
   const followUpData = {
+    metas: budget.totalIncome,
+    outlook: 125400000000,
     committed: 85400000000,
     executed: 32100000000,
     cashFlow: [
@@ -120,7 +122,7 @@ const Dashboard: React.FC<Props> = ({ theme, budget }) => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-100 pb-8">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="px-3 py-1 rounded-lg bg-red-50 text-[#EF3340] text-[9px] font-black uppercase tracking-widest border border-red-100">Sophie Analytics v3.0</span>
+            <span className="px-3 py-1 rounded-lg bg-red-50 text-[#EF3340] text-[9px] font-black uppercase tracking-widest border border-red-100">Sofia Analytics v3.0</span>
             {view !== 'DIRECTORY' && (
               <button 
                 onClick={() => setView('DIRECTORY')}
@@ -132,7 +134,7 @@ const Dashboard: React.FC<Props> = ({ theme, budget }) => {
           </div>
           <h2 className={`text-5xl font-black mb-2 tracking-tighter ${textColor}`}>
             {view === 'DIRECTORY' && "Directorios de Inversión"}
-            {view === 'PLANNING_REPORT' && "Reporte Estratégico 2027"}
+            {view === 'PLANNING_REPORT' && "Reporte Estratégico 2026"}
             {view === 'FOLLOWUP_REPORT' && "Seguimiento de Ejecución 0+n"}
           </h2>
           <p className="text-base font-medium text-gray-400">Inteligencia financiera y control de capital Claro Colombia.</p>
@@ -161,15 +163,15 @@ const Dashboard: React.FC<Props> = ({ theme, budget }) => {
       {view === 'DIRECTORY' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <FolderCard 
-            title="Planeación Estratégica 2027"
-            desc="Modelado financiero de demanda, indicadores de valor (VPN/ROI) y clasificaciones de inversión para el ciclo 2027."
+            title="Planeación Estratégica"
+            desc="Modelado financiero de demanda, indicadores de valor (VPN/ROI) y clasificaciones de inversión para el ciclo 2026."
             icon={<BarChart3 size={40} />}
             color="bg-red-500"
             onClick={() => setView('PLANNING_REPORT')}
           />
           <FolderCard 
             title="Seguimiento de Ejecución 0+n"
-            desc="Control mensual de ejecución presupuestal, monitoreo de POs SAP, flujo de caja y seguimiento de T-Unitarios."
+            desc="Control mensual de ejecución presupuestal, monitoreo de Metas y CAPEX (Outlook), POs SAP y flujo de caja."
             icon={<Activity size={40} />}
             color="bg-blue-500"
             onClick={() => setView('FOLLOWUP_REPORT')}
@@ -177,7 +179,7 @@ const Dashboard: React.FC<Props> = ({ theme, budget }) => {
         </div>
       )}
 
-      {/* VISTA 2: REPORTE PLANEACIÓN 2027 */}
+      {/* VISTA 2: REPORTE PLANEACIÓN 2026 */}
       {view === 'PLANNING_REPORT' && (
         <div className="space-y-12 animate-in fade-in duration-700">
           {/* KPIs Financieros */}
@@ -239,10 +241,11 @@ const Dashboard: React.FC<Props> = ({ theme, budget }) => {
       {/* VISTA 3: REPORTE SEGUIMIENTO 0+n */}
       {view === 'FOLLOWUP_REPORT' && (
         <div className="space-y-12 animate-in fade-in duration-700">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatCard label="CAPEX COMPROMETIDO" value={formatMoney(followUpData.committed)} icon={<ShoppingCart />} color="text-blue-600" theme={theme} />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <StatCard label="METAS (PRESUPUESTO)" value={formatMoney(followUpData.metas)} icon={<Target />} color="text-red-600" theme={theme} />
+            <StatCard label="CAPEX (OUTLOOK)" value={formatMoney(followUpData.outlook)} icon={<TrendingUp />} color="text-blue-600" theme={theme} />
+            <StatCard label="CAPEX COMPROMETIDO" value={formatMoney(followUpData.committed)} icon={<ShoppingCart />} color="text-indigo-600" theme={theme} />
             <StatCard label="CAPEX EJECUTADO" value={formatMoney(followUpData.executed)} icon={<Zap />} color="text-emerald-600" theme={theme} />
-            <StatCard label="AHORRO EN GESTIÓN" value={formatMoney(5400000000)} icon={<Coins />} color="text-amber-500" theme={theme} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -283,6 +286,64 @@ const Dashboard: React.FC<Props> = ({ theme, budget }) => {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* TABLA DE TABLEROS POWER BI */}
+          <div className={`p-10 rounded-[4rem] border ${cardBg} animate-in fade-in slide-in-from-bottom-4 duration-1000`}>
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-3 bg-amber-50 rounded-2xl text-amber-600 border border-amber-100">
+                <BarChart3 size={24} />
+              </div>
+              <div>
+                <h4 className={`text-xl font-black tracking-tighter uppercase ${textColor}`}>Ecosistema de Tableros Power BI</h4>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Acceso directo a reportes especializados</p>
+              </div>
+            </div>
+            
+            <div className="overflow-hidden rounded-[2.5rem] border border-gray-100">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className={theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Nombre Tablero</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Descripción</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 text-center">Sitio WEB</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${theme === 'dark' ? 'divide-white/5' : 'divide-gray-100'}`}>
+                  {[
+                    { name: 'TABLERO CONSOLIDADO CAPEX', icon: <PieChartIcon size={18} />, color: 'bg-blue-50 text-blue-600', desc: 'Este tablero muestra el Capex aprobado del año en curso agrupado en vista Overview.', url: 'https://app.powerbi.com/reportEmbed?reportId=3faad9f9-7a34-4903-894b-577f40c65461&autoAuth=true&ctid=46bb22b8-4c2c-40ff-8360-7b6334821279' },
+                    { name: 'TABLERO PLANES GERENTES', icon: <Users size={18} />, color: 'bg-emerald-50 text-emerald-600', desc: 'Este tablero muestra el plan aprobado para cada uno de los gerentes responsable de presupuesto.', url: 'https://app.powerbi.com/reportEmbed?reportId=b7faa54d-91eb-479a-87e8-2e0ea8e74eb0&autoAuth=true&ctid=46bb22b8-4c2c-40ff-8360-7b6334821279' },
+                    { name: 'TABLERO PLANES DIRECTORES', icon: <Briefcase size={18} />, color: 'bg-purple-50 text-purple-600', desc: 'Este tablero muestra el plan aprobado para cada uno de los responsable de presupuesto.', url: 'https://app.powerbi.com/reportEmbed?reportId=d1740c70-de49-4630-a2da-381306f0c84c&autoAuth=true&ctid=46bb22b8-4c2c-40ff-8360-7b6334821279' },
+                    { name: 'TABLERO OUTLOOK', icon: <TrendingUp size={18} />, color: 'bg-amber-50 text-amber-600', desc: 'Este tablero muestra el estado actual de la ejecución y comprometido de los proyectos vs el plan.', url: 'https://app.powerbi.com/reportEmbed?reportId=9e886bb4-08b8-4916-9c43-cfeb808a6dd8&autoAuth=true&ctid=46bb22b8-4c2c-40ff-8360-7b6334821279' },
+                    { name: 'TABLERO SEGUIMIENTO OC SAP', icon: <ShoppingCart size={18} />, color: 'bg-indigo-50 text-indigo-600', desc: 'Este tablero muestra las OCs asociadas con los proyectos, el plan y la diferencia entre ambos.', url: 'https://app.powerbi.com/reportEmbed?reportId=c9fac149-3a0f-444f-9c10-66e8f8c996cd&autoAuth=true&ctid=46bb22b8-4c2c-40ff-8360-7b6334821279' },
+                    { name: 'TABLERO T-UNITARIOS', icon: <Zap size={18} />, color: 'bg-orange-50 text-orange-600', desc: 'Este tablero muestra el T-Unitario del día.', url: 'https://app.powerbi.com/reportEmbed?reportId=047f98e8-fc45-4c21-8dc0-b09d25e36fdc&autoAuth=true&ctid=46bb22b8-4c2c-40ff-8360-7b6334821279' },
+                    { name: 'AVANZA CLARO', icon: <Activity size={18} />, color: 'bg-red-50 text-red-600', desc: 'Portal Avanza Claro para la administración de CAPEX Colombia.', url: 'https://avanza.claro.com.co/#/signin?redirect=%2Fsite%2FAVANZA%2Fviews%2FPEIAdministracinCapexColombia%2FMen%3F%3Aiid%3D1&error=46' }
+                  ].map((report, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50/80 transition-all group">
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-sm ${report.color}`}>
+                            {report.icon}
+                          </div>
+                          <span className={`text-[11px] font-black tracking-tight ${textColor}`}>{report.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-[11px] font-medium text-gray-400 leading-relaxed max-w-md">{report.desc}</td>
+                      <td className="px-6 py-5 text-center">
+                        <a 
+                          href={report.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white border border-gray-200 text-gray-600 text-[9px] font-black uppercase tracking-widest hover:bg-[#EF3340] hover:text-white hover:border-[#EF3340] transition-all shadow-sm group/btn"
+                        >
+                          Abrir Reporte <ArrowUpRight size={12} className="transition-transform group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5" />
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

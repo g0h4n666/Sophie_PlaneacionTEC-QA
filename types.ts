@@ -14,7 +14,6 @@ export enum AppPhase {
   USER_MGMT = 'ADMIN_USUARIOS',
   BUDGET_PARAMETERS = 'PARAMETROS_PRESUPUESTO',
   DATABASE_CONFIG = 'CONFIGURACION_DB',
-  NEW_PURCHASE_ORDERS = 'ORDEN_COMPRAS_NUEVAS',
   HELP_CENTER = 'CENTRO_AYUDA'
 }
 
@@ -31,7 +30,6 @@ export interface RolePermissions {
     userMgmt: boolean;
     params: boolean;
     dbConfig: boolean;
-    newPurchaseOrders: boolean;
   };
   steps: {
     step1: boolean;

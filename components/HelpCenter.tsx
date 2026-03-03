@@ -57,18 +57,18 @@ const HelpCenter: React.FC<Props> = ({ theme }) => {
       {/* Hero Header Didáctico */}
       <div className="relative p-12 rounded-[4rem] bg-[#0b0e14] overflow-hidden shadow-2xl border border-white/5">
         <div className="absolute top-0 right-0 p-12 opacity-5 rotate-12">
-            <SophieLogoLarge />
+            <SofiaLogoLarge />
         </div>
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-[#EF3340]/10 rounded-full border border-[#EF3340]/20 mb-6">
             <Sparkles className="text-[#EF3340]" size={16} />
-            <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Sophie Knowledge Hub</span>
+            <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Sofia Knowledge Hub</span>
           </div>
           <h2 className="text-6xl font-black text-white tracking-tighter mb-6 leading-none">
             Manual de <br /> <span className="text-[#EF3340]">Inteligencia Inversora</span>
           </h2>
           <p className="text-gray-400 text-lg font-medium leading-relaxed">
-            Entienda el ecosistema Sophie: Desde la vigilancia de tendencias tecnológicas hasta el seguimiento del flujo de caja real en SAP.
+            Entienda el ecosistema Sofia: Desde la vigilancia de tendencias tecnológicas hasta el seguimiento del flujo de caja real en SAP.
           </p>
         </div>
       </div>
@@ -118,9 +118,9 @@ const HelpCenter: React.FC<Props> = ({ theme }) => {
 const VisionSection = ({ theme }: { theme: string }) => (
   <div className="space-y-12">
     <div className="max-w-2xl">
-      <h3 className="text-4xl font-black tracking-tighter text-[#EF3340] mb-6">El Círculo Dorado de SOPHIE</h3>
+      <h3 className="text-4xl font-black tracking-tighter text-[#EF3340] mb-6">El Círculo Dorado de SOFIA</h3>
       <p className="text-xl text-gray-500 font-medium leading-relaxed">
-        SOPHIE es el acrónimo de <b>Strategic Operations & Project Hub for Investment Excellence</b>. Nuestra misión es transformar la cultura de gasto en una cultura de inversión.
+        SOFIA es el acrónimo de <b>Sistema Orquestador Financiero con Inteligencia Artificial</b>. Nuestra misión es transformar la cultura de gasto en una cultura de inversión.
       </p>
     </div>
 
@@ -135,9 +135,9 @@ const VisionSection = ({ theme }: { theme: string }) => (
           <BrainCircuitLarge />
        </div>
        <div>
-         <h4 className="text-sm font-black text-[#EF3340] uppercase tracking-widest mb-2">El Cerebro Sophie AI</h4>
+         <h4 className="text-sm font-black text-[#EF3340] uppercase tracking-widest mb-2">El Cerebro Sofia AI</h4>
          <p className="text-gray-400 text-sm leading-relaxed">
-           Sophie utiliza modelos <b>Gemini 3.0 Pro</b> para analizar sus Casos de Negocio. El sistema detecta inconsistencias en el VPN y genera "Preguntas Asesinas" que el Comité Central usará para evaluar su iniciativa.
+           Sofia analiza sus Casos de Negocio detectando inconsistencias en el VPN y generando "Preguntas Asesinas" que el Comité Central usará para evaluar su iniciativa.
          </p>
        </div>
     </div>
@@ -179,7 +179,7 @@ const FollowupSection = ({ theme }: { theme: string }) => (
           <div>
              <h5 className="font-black text-gray-900 uppercase text-sm mb-2">Conexión con el ERP Corporativo</h5>
              <p className="text-sm text-gray-500 leading-relaxed">
-               Sophie no es un silo. Este módulo lee las <b>Solicitudes de Pedido (SolPed)</b> y <b>Órdenes de Compra (PO)</b> directamente de SAP. Si un proyecto no está planeado en Sophie, no podrá liberar fondos en SAP.
+               Sofia no es un silo. Este módulo lee las <b>Solicitudes de Pedido (SolPed)</b> y <b>Órdenes de Compra (PO)</b> directamente de SAP. Si un proyecto no está planeado en Sofia, no podrá liberar fondos en SAP.
              </p>
           </div>
        </div>
@@ -202,7 +202,7 @@ const ImpactSection = ({ theme }: { theme: string }) => (
         </div>
     </div>
 
-    <p className="text-lg text-gray-500 font-medium">El ciclo Sophie solo se cierra cuando auditamos el impacto real. Este módulo exige:</p>
+    <p className="text-lg text-gray-500 font-medium">El ciclo Sofia solo se cierra cuando auditamos el impacto real. Este módulo exige:</p>
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
       <div className="p-8 rounded-[2.5rem] bg-emerald-50 border border-emerald-100">
@@ -216,7 +216,7 @@ const ImpactSection = ({ theme }: { theme: string }) => (
       <div className="p-8 rounded-[2.5rem] bg-gray-50 border border-gray-100">
          <h5 className="font-black text-gray-800 uppercase text-[11px] tracking-widest mb-4">Evidencia Documental</h5>
          <p className="text-xs text-gray-500 leading-relaxed font-medium">
-           Debe cargar los reportes que demuestren que la inversión de 2027 generó los beneficios prometidos en el Paso 1 de Planeación.
+           Debe cargar los reportes que demuestren que la inversión de 2026 generó los beneficios prometidos en el Paso 1 de Planeación.
          </p>
       </div>
     </div>
@@ -239,7 +239,7 @@ const TechSection = ({ theme }: { theme: string }) => (
         <Lightbulb className="text-yellow-400" /> El Workflow de "Promoción"
       </h4>
       <p className="text-sm text-gray-400 leading-relaxed max-w-2xl font-medium">
-        En Vigilancia Tech no solo observamos tendencias (IA, 6G, Cloud Edge). Cuando una tecnología está madura, Sophie permite <b>"Promover a CAPEX"</b>. Esto crea automáticamente una iniciativa en Planeación, heredando toda la investigación del Radar.
+        En Vigilancia Tech no solo observamos tendencias (IA, 6G, Cloud Edge). Cuando una tecnología está madura, Sofia permite <b>"Promover a CAPEX"</b>. Esto crea automáticamente una iniciativa en Planeación, heredando toda la investigación del Radar.
       </p>
     </div>
   </div>
@@ -343,7 +343,7 @@ const RoleBox = ({ role, access }: any) => (
   </div>
 );
 
-const SophieLogoLarge = () => (
+const SofiaLogoLarge = () => (
   <svg viewBox="0 0 300 340" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-96 h-96">
     <circle cx="150" cy="150" r="140" stroke="white" strokeWidth="2" opacity="0.2" />
     <path d="M100 150C100 130 120 110 150 110C180 110 200 130 200 150" stroke="white" strokeWidth="4" />

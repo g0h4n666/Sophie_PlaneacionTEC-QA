@@ -65,7 +65,7 @@ const EvaluationModelsModal: React.FC<Props> = ({ show, onClose, theme }) => {
         </div>
 
         <div className="p-8 border-t border-inherit bg-gray-50/10 flex justify-center">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Powered by Corporate Finance Engine 2027</p>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Powered by Corporate Finance Engine 2026</p>
         </div>
       </div>
     </div>

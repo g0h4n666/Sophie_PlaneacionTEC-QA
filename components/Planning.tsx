@@ -71,6 +71,7 @@ export interface BusinessCaseData {
     payback: string;
     roi: string;
     valorResidual: string;
+    vpnI?: string;
   };
   riesgosFinancieros: FinancialRisk[];
   ahorroOpexResumen?: string;
@@ -129,7 +130,7 @@ export interface ProjectRow {
   kpiPrincipal?: string;
   businessCase: BusinessCaseData;
   modeloSoporte?: string;
-  estadoSoporte?: 'PENDIENTE' | 'APROBADO' | 'DEVUELTO';
+  estadoSoporte?: 'PENDIENTE' | 'APROBADO' | 'DEVUELTO' | 'EN REVISION';
   commentariosSoporte?: string;
   categoria?: string;
   categoriasEstrategicas: string[];
@@ -137,20 +138,18 @@ export interface ProjectRow {
   archivoSustento?: string;
   scorecard?: InvestmentScorecard;
   workflowP2?: ProjectWorkflowP2;
-  dbId?: number;
-  scorecardPersistido?: boolean;
 }
 
 export const MACRO_OPTIONS = [
-  "ENERGÍA 2027", "DATA 2027", "FIBRA REGIONAL 2027", "TRANSPORTE 2027", 
-  "5G 2027", "COBERTURA RURAL", "MODERNIZACIÓN CORE", "B2B SOLUTIONS"
+  "ENERGÍA 2026", "DATA 2026", "FIBRA REGIONAL 2026", "TRANSPORTE 2026", 
+  "5G 2026", "COBERTURA RURAL", "MODERNIZACIÓN CORE", "B2B SOLUTIONS"
 ];
 
 const initialFormState: ProjectRow = {
   macroproyecto: '',
   proyecto: '',
   idProyecto: '',
-  ano: '2027',
+  ano: '2026',
   tieneIdAsignado: true,
   tieneInterdependencias: false,
   gerentesInterdependencia: [],
@@ -208,7 +207,7 @@ const initialFormState: ProjectRow = {
     avoidance: { ano0: '0', ano1: '0', ano2: '0', anon: '0' },
     opex: { ano0: '0', ano1: '0', ano2: '0', anon: '0' },
     wacc: '12.5',
-    indicadores: { vpn: '0.00', tir: '0.00', payback: '0', roi: '0', valorResidual: '0.00' },
+    indicadores: { vpn: '0.00', tir: '0.00', payback: '0', roi: '0', valorResidual: '0.00', vpnI: '0.00' },
     riesgosFinancieros: [],
     ahorroOpexResumen: '0',
     otroKPINombre: '',
@@ -237,17 +236,6 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
   const perms = rolePermissions[user.role];
   const [formData, setFormData] = useState<ProjectRow>(initialFormState);
 
-  useEffect(() => {
-    fetch(`/api/cargar-paso1?vigencia=${vigencia}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.rows.length > 0) {
-          setRows(data.rows);
-        }
-      })
-      .catch(err => console.error('❌ Error cargando PASO 1:', err));
-  }, [vigencia]);
-
   const steps = [
     { id: 1, label: 'Identificación de Demanda', key: 'step1' as const, icon: <Target size={20} />, color: 'bg-emerald-500' },
     { id: 2, label: 'Gestión & Clasificación', key: 'step2' as const, icon: <Calculator size={20} />, color: 'bg-blue-500' },
@@ -265,12 +253,12 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
           macroproyecto: macro,
           proyecto: `${macro} - Proyecto Prototipo ${i}`,
           idProyecto: `SIM-${macro.substring(0,3)}-${i.toString().padStart(3, '0')}`,
-          ano: '2027',
+          ano: '2026',
           nombreIniciativa: `Iniciativa de Despliegue ${i}`,
           descripcionBreve: `Proyecto simulado para la vertical ${macro}. Enfocado en expansión de cobertura y optimización de red core. Esta es una descripción larga para cumplir con el mínimo de cincuenta caracteres requeridos por el sistema.`,
           presupuestoCop: montoCop.toString(),
           presupuestoUsd: (montoCop / budget.trm).toFixed(2),
-          gerente: 'Sophie Simulator AI',
+          gerente: 'Sofia Simulator AI',
           responsableBeneficio: 'Analista de Negocio AI',
           estadoSoporte: 'PENDIENTE', 
           workflowP2: {
@@ -295,12 +283,41 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
     const errors: Record<string, string> = {};
     if (!formData.macroproyecto) errors.macroproyecto = 'El macroproyecto es obligatorio';
     if (!formData.proyecto) errors.proyecto = 'El nombre del proyecto es obligatorio';
+    if (!formData.nombreIniciativa) errors.nombreIniciativa = 'El nombre de la iniciativa es obligatorio';
     if (!formData.descripcionBreve || formData.descripcionBreve.length < 50) {
       errors.descripcionBreve = 'La descripción técnica debe tener al menos 50 caracteres';
     }
     if (formData.tieneInterdependencias && (!formData.gerentesInterdependencia || formData.gerentesInterdependencia.length === 0)) {
       errors.gerenteInterdependencia = 'Debe seleccionar al menos un gerente si existen interdependencias';
     }
+
+    const isMantenimiento = formData.categoriasEstrategicas.includes('MANTENIMIENTO');
+    const isProteccionEbitda = formData.categoriasEstrategicas.includes('PROTECCION_EBITDA');
+    const isCrecimientoEbitda = formData.categoriasEstrategicas.includes('CRECIMIENTO_EBITDA');
+    const isNegociosAdyacentes = formData.categoriasEstrategicas.includes('NEGOCIOS_ADYACENTES');
+    const isStrategic = formData.categoriasEstrategicas.some(c => ['MANTENIMIENTO', 'PROTECCION_EBITDA', 'CRECIMIENTO_EBITDA', 'NEGOCIOS_ADYACENTES'].includes(c));
+    
+    if (isStrategic && !isMantenimiento && !isProteccionEbitda) {
+      if (!formData.casoNegocioArchivo) {
+        errors.casoNegocioArchivo = 'El soporte de caso de negocio es obligatorio';
+      }
+      if (!formData.businessCase.indicadores.vpn || formData.businessCase.indicadores.vpn === '0' || formData.businessCase.indicadores.vpn === '0.00') {
+        errors.vpn = 'El VPN es obligatorio para esta categoría';
+      }
+    }
+
+    if (isStrategic && !isCrecimientoEbitda && !isNegociosAdyacentes) {
+      if (!formData.matrizRiesgo) {
+        errors.matrizRiesgo = 'El anexo de soporte de riesgo es obligatorio';
+      }
+      if (!formData.probabilidadRiesgo || formData.probabilidadRiesgo === 0) {
+        errors.probabilidadRiesgo = 'La probabilidad de riesgo es obligatoria';
+      }
+      if (!formData.impactoRiesgo || formData.impactoRiesgo === 0) {
+        errors.impactoRiesgo = 'El impacto de riesgo es obligatorio';
+      }
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -321,38 +338,25 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
     }));
   };
 
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSaveOnly = async () => {
+  const handleSaveOnly = () => {
     if (!validateForm()) return;
-    setIsSaving(true);
-    try {
-      const res = await fetch('/api/guardar-paso1', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formData, userEmail: user.email, dbId: formData.dbId })
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Error desconocido al guardar');
-
-      const savedRow = { ...formData, dbId: data.dbId };
-      if (editingIndex !== null) {
-        const newRows = [...rows];
-        newRows[editingIndex] = savedRow;
-        setRows(newRows);
-      } else {
-        setRows(prev => [...prev, savedRow]);
-      }
-      closeModal();
-    } catch (err: any) {
-      console.error('❌ Error guardando en BD:', err);
-      alert(`Error al guardar: ${err.message}`);
-    } finally {
-      setIsSaving(false);
+    if (editingIndex !== null) {
+      const newRows = [...rows];
+      newRows[editingIndex] = { ...formData };
+      setRows(newRows);
+    } else {
+      setRows(prev => [...prev, { ...formData }]);
     }
+    closeModal();
   };
 
   const handleSendProject = (index: number) => {
+    const newRows = [...rows];
+    newRows[index] = { 
+      ...newRows[index], 
+      estadoSoporte: 'EN REVISION' 
+    };
+    setRows(newRows);
     setCurrentStep(2);
   };
 
@@ -368,21 +372,20 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
 
   return (
     <div className="space-y-8 pb-24 relative animate-in fade-in duration-500">
-      <ProjectFormModal
-        show={showForm}
-        onClose={closeModal}
-        formData={formData}
+      <ProjectFormModal 
+        show={showForm} 
+        onClose={closeModal} 
+        formData={formData} 
         setFormData={setFormData}
-        onInputChange={handleInputChange}
-        onItemsChange={handleItemsChange}
-        onSave={handleSaveOnly}
+        onInputChange={handleInputChange} 
+        onItemsChange={handleItemsChange} 
+        onSave={handleSaveOnly} 
         onSaveOnly={handleSaveOnly}
-        editingIndex={editingIndex}
-        theme={theme}
-        errors={formErrors}
-        vigencia={vigencia}
+        editingIndex={editingIndex} 
+        theme={theme} 
+        errors={formErrors} 
+        vigencia={vigencia} 
         budget={budget}
-        isSaving={isSaving}
       />
 
       <div className={`p-10 border rounded-[3rem] transition-all ${cardBg}`}>
@@ -398,13 +401,10 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
                 </p>
              </div>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black border border-blue-100">
-            <AlertCircle size={14} /> SOPHIE v2.0 - TORRE DE CONTROL
-          </div>
         </div>
 
         <div className="space-y-12">
-           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4">
+           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               {steps.map(step => {
                 const isStepLocked = step.id > 1 && rows.length === 0;
                 const isActive = currentStep === step.id;
@@ -433,7 +433,7 @@ const Planning: React.FC<Props> = ({ user, budget, onSave, theme, rolePermission
               {currentStep === 1 && <Step1Identificacion rows={rows} onAdd={() => setShowForm(true)} onEdit={(idx) => {setEditingIndex(idx); setFormData(rows[idx]); setShowForm(true);}} onDelete={(idx) => setRows(rows.filter((_, i) => i !== idx))} onSend={handleSendProject} onExecuteSimulator={handleExecuteSimulator} theme={theme} canModify={perms.steps.step1} vigencia={vigencia} />}
               {currentStep === 2 && <Step2Clasificacion rows={rows} theme={theme} canModify={perms.steps.step2} onUpdateRows={handleUpdateRows} onReturnToP1={handleReturnToIdentificacion} onNextStep={() => setCurrentStep(3)} macroStatus={macroStatus} setMacroStatus={setMacroStatus} />}
               {currentStep === 3 && <Step5PressureTest rows={rows} theme={theme} onUpdateRows={handleUpdateRows} canModify={perms.steps.step5} />}
-              {currentStep === 4 && <Step6Consolidacion rows={rows} theme={theme} onFinalize={onSave} canModify={perms.steps.step6} />}
+              {currentStep === 4 && <Step6Consolidacion rows={rows} theme={theme} onFinalize={onSave} canModify={perms.steps.step6} trm={budget.trm} />}
            </div>
         </div>
       </div>

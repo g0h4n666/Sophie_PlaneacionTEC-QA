@@ -11,7 +11,6 @@ import UserManagement from './components/UserManagement';
 import TechWatch from './components/TechWatch';
 import BudgetParameters from './components/BudgetParameters';
 import DatabaseSettings from './components/DatabaseSettings';
-import NewPurchaseOrders from './components/NewPurchaseOrders';
 import HelpCenter from './components/HelpCenter';
 import { 
   LayoutDashboard, 
@@ -43,7 +42,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 
-export const SophieLogo = ({ className = "w-12 h-12" }: { className?: string }) => (
+export const SofiaLogo = ({ className = "w-12 h-12" }: { className?: string }) => (
   <svg viewBox="0 0 300 340" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
     <path d="M120 70C110 60 90 50 90 50C90 50 100 80 105 90M180 70C190 60 210 50 210 50C210 50 200 80 195 90" stroke="#1a1f26" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M110 65C110 45 130 35 150 35C170 35 190 45 190 65" stroke="#EF3340" strokeWidth="3" strokeLinecap="round"/>
@@ -82,19 +81,19 @@ export const SophieLogo = ({ className = "w-12 h-12" }: { className?: string }) 
 
 const DEFAULT_PERMISSIONS: Record<UserRole, RolePermissions> = {
   'ADMINISTRADOR': {
-    modules: { dashboard: true, planning: true, followup: true, impactMeasurement: true, advancedModels: true, techWatch: true, userMgmt: true, params: true, dbConfig: true, newPurchaseOrders: true },
+    modules: { dashboard: true, planning: true, followup: true, impactMeasurement: true, advancedModels: true, techWatch: true, userMgmt: true, params: true, dbConfig: true },
     steps: { step1: true, step2: true, step3: true, step4: true, step5: true, step6: true }
   },
   'GERENTE_RESPONSABLE': {
-    modules: { dashboard: false, planning: true, followup: false, impactMeasurement: true, advancedModels: true, techWatch: false, userMgmt: false, params: false, dbConfig: false, newPurchaseOrders: true },
+    modules: { dashboard: false, planning: true, followup: false, impactMeasurement: true, advancedModels: true, techWatch: false, userMgmt: false, params: false, dbConfig: false },
     steps: { step1: true, step2: false, step3: true, step4: false, step5: false, step6: false }
   },
   'RESPONSABLE_PLANEACION': {
-    modules: { dashboard: true, planning: true, followup: true, impactMeasurement: true, advancedModels: true, techWatch: true, userMgmt: false, params: false, dbConfig: false, newPurchaseOrders: false },
+    modules: { dashboard: true, planning: true, followup: true, impactMeasurement: true, advancedModels: true, techWatch: true, userMgmt: false, params: false, dbConfig: false },
     steps: { step1: false, step2: true, step3: false, step4: true, step5: true, step6: true }
   },
   'CONTROLLER_PRESUPUESTAL': {
-    modules: { dashboard: false, planning: false, followup: false, impactMeasurement: false, advancedModels: false, techWatch: false, userMgmt: false, params: false, dbConfig: false, newPurchaseOrders: true },
+    modules: { dashboard: false, planning: false, followup: false, impactMeasurement: false, advancedModels: false, techWatch: false, userMgmt: false, params: false, dbConfig: false },
     steps: { step1: false, step2: false, step3: false, step4: false, step5: false, step6: false }
   }
 };
@@ -119,8 +118,9 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, RolePermissions>>(DEFAULT_PERMISSIONS);
-  const [vigencia, setVigencia] = useState('2027');
+  const [vigencia, setVigencia] = useState('2026');
   const [budget, setBudget] = useState<Budget>(DEFAULT_BUDGET);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
   const [openCats, setOpenCats] = useState<Record<string, boolean>>({
     inversion: true,
@@ -154,6 +154,9 @@ const App: React.FC = () => {
     if (savedBudget) {
       setBudget(JSON.parse(savedBudget));
     }
+
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
   }, []);
 
   const toggleTheme = () => {
@@ -209,10 +212,10 @@ const App: React.FC = () => {
         <div className="p-8">
           <div className="flex items-center gap-4 group cursor-pointer" onClick={() => setPhase(AppPhase.PORTAL_HOME)}>
             <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm transition-transform group-hover:scale-110 border border-gray-50 p-2">
-              <SophieLogo className="w-full h-full" />
+              <SofiaLogo className="w-full h-full" />
             </div>
             <div>
-              <h1 className={`text-lg font-black tracking-tighter leading-none ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>SOPHIE</h1>
+              <h1 className={`text-lg font-black tracking-tighter leading-none ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>SOFIA</h1>
               <h1 className={`text-[8px] font-black tracking-[0.3em] text-[#EF3340] mt-1`}>PLATFORM</h1>
             </div>
           </div>
@@ -230,12 +233,7 @@ const App: React.FC = () => {
                     <NavItem active={phase === AppPhase.CAPEX_PLANNING} onClick={() => setPhase(AppPhase.CAPEX_PLANNING)} icon={<FileText size={18} />} label={`Planeación ${vigencia}`} theme={theme} isSubItem hasAlert />
                   )}
                   {perms.modules.followup && (
-                    <>
-                      <NavItem active={phase === AppPhase.CAPEX_FOLLOWUP} onClick={() => setPhase(AppPhase.CAPEX_FOLLOWUP)} icon={<Milestone size={18} />} label="Seguimiento 0+n" theme={theme} isSubItem />
-                      {perms.modules.newPurchaseOrders && (
-                        <NavItem active={phase === AppPhase.NEW_PURCHASE_ORDERS} onClick={() => setPhase(AppPhase.NEW_PURCHASE_ORDERS)} icon={<PackageSearch size={18} />} label="Órdenes de Compra" theme={theme} isSubItem isDeepNested />
-                      )}
-                    </>
+                    <NavItem active={phase === AppPhase.CAPEX_FOLLOWUP} onClick={() => setPhase(AppPhase.CAPEX_FOLLOWUP)} icon={<Milestone size={18} />} label="Seguimiento 0+n" theme={theme} isSubItem />
                   )}
                   {perms.modules.impactMeasurement && (
                     <NavItem active={phase === AppPhase.IMPACT_MEASUREMENT} onClick={() => setPhase(AppPhase.IMPACT_MEASUREMENT)} icon={<GanttChart size={18} />} label="Medición Impacto" theme={theme} isSubItem />
@@ -289,7 +287,7 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto relative">
+      <main className="flex-1 overflow-y-auto relative flex flex-col">
         <header className={`h-20 flex items-center justify-between px-8 sticky top-0 z-50 transition-all duration-500 ${theme === 'dark' ? 'bg-[#0b0e14]/70 border-b border-white/5' : 'bg-[#FDFDFD]/70 border-b border-gray-100'} backdrop-blur-xl`}>
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-[#EF3340]"></div>
@@ -311,14 +309,13 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        <div className="p-8 max-w-[1400px] mx-auto min-h-screen">
+        <div className="p-8 max-w-[1400px] mx-auto min-h-[calc(100vh-80px-60px)] w-full">
           {phase === AppPhase.PORTAL_HOME && <PortalHome user={user} theme={theme} setPhase={setPhase} rolePermissions={rolePermissions} />}
           {phase === AppPhase.CAPEX_DASHBOARD && <Dashboard budget={budget} expenses={[]} theme={theme} />}
           {phase === AppPhase.CAPEX_PLANNING && <Planning user={user!} budget={budget} onSave={() => setPhase(AppPhase.CAPEX_DASHBOARD)} theme={theme} rolePermissions={rolePermissions} vigencia={vigencia} />}
-          {phase === AppPhase.CAPEX_FOLLOWUP && <FollowUp theme={theme} />}
+          {phase === AppPhase.CAPEX_FOLLOWUP && <FollowUp theme={theme} budget={budget} />}
           {phase === AppPhase.IMPACT_MEASUREMENT && <ImpactMeasurement theme={theme} />}
           {phase === AppPhase.ADVANCED_MODELS && <AdvancedModels theme={theme} />}
-          {phase === AppPhase.NEW_PURCHASE_ORDERS && <NewPurchaseOrders theme={theme} />}
           {phase === AppPhase.TECH_WATCH && <TechWatch theme={theme} />}
           {phase === AppPhase.HELP_CENTER && <HelpCenter theme={theme} />}
           {phase === AppPhase.USER_MGMT && (
@@ -331,6 +328,11 @@ const App: React.FC = () => {
           {phase === AppPhase.BUDGET_PARAMETERS && <BudgetParameters theme={theme} budget={budget} onUpdateVigencia={handleUpdateVigencia} onUpdateBudget={handleUpdateBudget} />}
           {phase === AppPhase.DATABASE_CONFIG && <DatabaseSettings theme={theme} />}
         </div>
+
+        <footer className={`py-4 px-8 border-t flex items-center justify-between text-[10px] font-bold tracking-widest uppercase mt-auto ${theme === 'dark' ? 'border-white/5 text-gray-500 bg-[#0b0e14]' : 'border-gray-100 text-gray-400 bg-[#FDFDFD]'}`}>
+          <span>{currentTime.toLocaleString('es-CO', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true })} (GMT-5)</span>
+          <span>SOFIA v1.1.0.1</span>
+        </footer>
       </main>
     </div>
   );
@@ -384,16 +386,13 @@ const PortalHome: React.FC<{ user: User | null; theme: string; setPhase: (p: App
           Dirección de <span className="text-[#EF3340]">Planeación Tecnológica</span>
         </h2>
         <p className="text-lg font-medium text-gray-400 leading-relaxed max-w-3xl">
-          Sophie es el núcleo de inteligencia estratégica de Claro Colombia. Nuestra plataforma orquesta el ciclo de vida completo del <span className="text-gray-600 font-bold">CAPEX</span>, integrando vigilancia tecnológica de vanguardia.
+          SOFIA es el núcleo de inteligencia estratégica de Claro Colombia. Nuestra plataforma orquesta el ciclo de vida completo del <span className="text-gray-600 font-bold">CAPEX</span>, integrando vigilancia tecnológica de vanguardia.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {perms.modules.planning && (
           <ModuleCard theme={theme} title="Gestión Capex" subtitle="Capital Expenditure" icon={<TrendingUp size={24} />} desc="Administración del ciclo de inversión desde la demanda hasta el seguimiento real en SAP." detailedDesc="Optimice el despliegue de capital mediante el seguimiento preciso de PEPs y solicitudes de pedido." color="#EF3340" onClick={() => setPhase(AppPhase.CAPEX_PLANNING)} />
-        )}
-        {perms.modules.newPurchaseOrders && (
-          <ModuleCard theme={theme} title="Órdenes de Compra" subtitle="Adquisiciones" icon={<Truck size={24} />} desc="Creación y seguimiento de solicitudes de abastecimiento técnico con validación de precios." detailedDesc="Gestione solicitudes de abastecimiento técnico con validación de precios unitarios aprobados." color="#3B82F6" onClick={() => setPhase(AppPhase.NEW_PURCHASE_ORDERS)} />
         )}
         {perms.modules.techWatch && (
           <ModuleCard theme={theme} title="Vigilancia Tech" subtitle="Trends & Radar" icon={<Eye size={24} />} desc="Monitoreo estratégico de tendencias y roadmaps para la toma de decisiones tecnológicas." detailedDesc="Explore el horizonte tecnológico a través de un radar especializado y workflow de casos." color="#10B981" onClick={() => setPhase(AppPhase.TECH_WATCH)} />

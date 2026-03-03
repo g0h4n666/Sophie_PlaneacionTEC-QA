@@ -53,7 +53,7 @@ const CeilingInput: React.FC<{ label: string; value: number; onChange: (v: numbe
 const BudgetParameters: React.FC<Props> = ({ theme, budget, onUpdateVigencia, onUpdateBudget }) => {
   const [loading, setLoading] = useState(false);
   const [localBudget, setLocalBudget] = useState<Budget>(budget);
-  const [vigencia, setVigencia] = useState('2027');
+  const [vigencia, setVigencia] = useState('2026');
 
   useEffect(() => {
     const savedVigencia = localStorage.getItem('global_vigencia');
@@ -111,7 +111,7 @@ const BudgetParameters: React.FC<Props> = ({ theme, budget, onUpdateVigencia, on
                   type="text" 
                   value={vigencia}
                   onChange={(e) => setVigencia(e.target.value)}
-                  placeholder="Ej. 2027"
+                  placeholder="Ej. 2026"
                   className={`w-full pl-16 pr-8 py-5 rounded-[2rem] border outline-none transition-all font-black text-lg ${theme === 'dark' ? 'bg-[#1a1f26] border-[#2d3748] focus:border-[#EF3340]' : 'bg-gray-50 border-gray-100 focus:border-[#EF3340] shadow-inner'}`}
                 />
               </div>

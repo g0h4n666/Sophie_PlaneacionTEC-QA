@@ -1,0 +1,19 @@
+.consolidacion-risk-card {
+  background: #e5e7eb;
+  border: 1px solid #d1d5db;
+  border-radius: 1.2rem;
+  padding: 1rem;
+}
+
+.consolidacion-range {
+  width: 100%;
+  height: 0.5rem;
+  accent-color: #1479c9;
+}
+
+.consolidacion-priority-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: #f8f9fb;
+}

@@ -55,6 +55,37 @@ const CATEGORIAS_ESTRATEGICAS = [
   { id: 'NEGOCIOS_ADYACENTES', label: 'Negocios adyacentes', desc: 'Estrategia a largo plazo.' }
 ];
 
+const RISK_MATRIX_SCORES: Record<number, number[]> = {
+  1: [1, 2, 3, 4, 5],
+  2: [2, 4, 6, 7, 8],
+  3: [6, 9, 10, 11, 13],
+  4: [12, 14, 15, 16, 17],
+  5: [16, 18, 20, 22, 25]
+};
+
+const mapProbToScore = (p: number): number => {
+  if (p < 1) return 1;
+  if (p <= 20) return 2;
+  if (p <= 50) return 3;
+  if (p <= 80) return 4;
+  return 5;
+};
+
+const mapImpactToScore = (i: number): number => {
+  if (i <= 500000) return 1;
+  if (i <= 2000000) return 2;
+  if (i <= 10000000) return 3;
+  if (i <= 30000000) return 4;
+  return 5;
+};
+
+const getHeatmapColor = (score: number) => {
+  if (score >= 20) return 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,51,64,0.3)]';
+  if (score >= 12) return 'bg-orange-500 text-white';
+  if (score >= 6) return 'bg-yellow-400 text-gray-900';
+  return 'bg-emerald-500 text-white';
+};
+
 const formatCurrency = (val: string | number) => {
   const num = typeof val === 'string' ? parseFloat(val) : val;
   return new Intl.NumberFormat('es-CO', {
@@ -82,6 +113,36 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
 
   const textColor = theme === 'dark' ? 'text-white' : 'text-gray-900';
 
+  const stats = useMemo(() => {
+    const total = rows.length;
+    const tech = { approved: 0, pending: 0, rejected: 0 };
+    const finance = { approved: 0, pending: 0, rejected: 0 };
+    const risk = { approved: 0, pending: 0, rejected: 0 };
+    const categories: Record<string, number> = {};
+
+    rows.forEach(r => {
+      const wf = r.workflowP2 || { techPlanning: { status: 'PENDIENTE' }, finance: { status: 'PENDIENTE' }, risk: { status: 'PENDIENTE' } };
+      
+      if (wf.techPlanning.status === 'APROBADO') tech.approved++;
+      else if (wf.techPlanning.status === 'RECHAZADO') tech.rejected++;
+      else tech.pending++;
+
+      if (wf.finance.status === 'APROBADO') finance.approved++;
+      else if (wf.finance.status === 'RECHAZADO') finance.rejected++;
+      else finance.pending++;
+
+      if (wf.risk.status === 'APROBADO') risk.approved++;
+      else if (wf.risk.status === 'RECHAZADO') risk.rejected++;
+      else risk.pending++;
+
+      if (r.categoria) {
+        categories[r.categoria] = (categories[r.categoria] || 0) + 1;
+      }
+    });
+
+    return { total, tech, finance, risk, categories };
+  }, [rows]);
+
   const macroGroups = useMemo(() => {
     const groups: Record<string, MacroGroup> = {};
     rows.forEach((row, idx) => {
@@ -100,27 +161,11 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
     setShowTechnicalSheet(prev => ({ ...prev, [projectId]: !prev[projectId] }));
   };
 
-  const persistP2 = (project: ProjectRow) => {
-    if (!project.dbId) return;
-    fetch('/api/guardar-paso2', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dbId:         project.dbId,
-        workflowP2:   project.workflowP2,
-        estadoSoporte: project.estadoSoporte,
-        categoria:    project.categoria,
-        vpn:          project.businessCase?.indicadores?.vpn
-      })
-    }).catch(err => console.error('❌ Error guardando P2:', err));
-  };
-
   const handleUpdateCategory = (originalIdx: number, category: string) => {
     if (!canModify) return;
     const newRows = [...rows];
     newRows[originalIdx].categoria = category;
     onUpdateRows(newRows);
-    persistP2(newRows[originalIdx]);
   };
 
   const handleUpdateVPN = (originalIdx: number, val: string) => {
@@ -128,14 +173,13 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
     const newRows = [...rows];
     newRows[originalIdx].businessCase.indicadores.vpn = val;
     onUpdateRows(newRows);
-    persistP2(newRows[originalIdx]);
   };
 
   const handleUpdateWorkflow = (originalIdx: number, stage: keyof ProjectWorkflowP2, newStatus: 'APROBADO' | 'RECHAZADO') => {
     if (!canModify) return;
     const newRows = [...rows];
     const project = newRows[originalIdx];
-
+    
     if (!project.workflowP2) {
       project.workflowP2 = {
         techPlanning: { status: 'PENDIENTE' },
@@ -159,7 +203,6 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
     }
 
     onUpdateRows(newRows);
-    persistP2(project);
   };
 
   const handleReturnProject = (originalIdx: number) => {
@@ -167,7 +210,6 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
     newRows[originalIdx].estadoSoporte = 'DEVUELTO';
     onUpdateRows(newRows);
     onReturnToP1(originalIdx);
-    persistP2(newRows[originalIdx]);
   };
 
   const toggleMacro = (macroName: string) => {
@@ -210,16 +252,107 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
             PREREQUISITO: VALIDACIÓN TECH <span className="mx-2 text-[#EF3340]">→</span> (FINANCIERA <span className="text-[#EF3340] underline">O</span> RIESGO)
           </p>
         </div>
-        {/* SIMULADOR DESHABILITADO
-        {canModify && rows.length > 0 && (
-          <button
-            onClick={handleSimulateGovernance}
-            className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl active:scale-95 flex items-center gap-3"
-          >
-            <Zap size={16} className="text-yellow-300 animate-pulse" /> SIMULAR GOBERNANZA MASIVA
-          </button>
-        )}
-        */}
+        <button 
+          onClick={handleSimulateGovernance}
+          className="px-8 py-4 bg-gray-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-3 hover:bg-[#EF3340] transition-all active:scale-95 shadow-xl"
+        >
+          <Zap size={18} /> SIMULAR GOBERNANZA
+        </button>
+      </div>
+
+      {/* Resumen de Gobernanza */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-12">
+        <div className="lg:col-span-3 bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-red-50 text-[#EF3340] rounded-xl">
+              <Target size={18} />
+            </div>
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total en Proceso</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-5xl font-black text-gray-900 tracking-tighter">{stats.total}</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase">Iniciativas</span>
+          </div>
+        </div>
+
+        <div className="lg:col-span-9 bg-[#F8F9FB] p-8 rounded-[3.5rem] border border-gray-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Tech Stats */}
+            <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Validación Tech</span>
+                <Cpu size={14} className="text-blue-500" />
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="text-center">
+                  <p className="text-[9px] font-black text-emerald-500 uppercase">Aprob</p>
+                  <p className="text-xl font-black text-gray-900">{stats.tech.approved}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] font-black text-amber-500 uppercase">Pend</p>
+                  <p className="text-xl font-black text-gray-900">{stats.tech.pending}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] font-black text-red-500 uppercase">Rech</p>
+                  <p className="text-xl font-black text-gray-900">{stats.tech.rejected}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Finance Stats */}
+            <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Validación Fin</span>
+                <DollarSign size={14} className="text-emerald-500" />
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="text-center">
+                  <p className="text-[9px] font-black text-emerald-500 uppercase">Aprob</p>
+                  <p className="text-xl font-black text-gray-900">{stats.finance.approved}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] font-black text-amber-500 uppercase">Pend</p>
+                  <p className="text-xl font-black text-gray-900">{stats.finance.pending}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] font-black text-red-500 uppercase">Rech</p>
+                  <p className="text-xl font-black text-gray-900">{stats.finance.rejected}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Risk Stats */}
+            <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Validación Riesgo</span>
+                <ShieldCheck size={14} className="text-amber-500" />
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="text-center">
+                  <p className="text-[9px] font-black text-emerald-500 uppercase">Aprob</p>
+                  <p className="text-xl font-black text-gray-900">{stats.risk.approved}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] font-black text-amber-500 uppercase">Pend</p>
+                  <p className="text-xl font-black text-gray-900">{stats.risk.pending}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] font-black text-red-500 uppercase">Rech</p>
+                  <p className="text-xl font-black text-gray-900">{stats.risk.rejected}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            {CATEGORIAS_ESTRATEGICAS.map(cat => (
+              <div key={cat.id} className="bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">{cat.label}</span>
+                <span className="text-xs font-black text-blue-600">{stats.categories[cat.id] || 0}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -283,6 +416,11 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
                       const wf = project.workflowP2 || { techPlanning: { status: 'PENDIENTE' }, finance: { status: 'PENDIENTE' }, risk: { status: 'PENDIENTE' } };
                       const isTechApproved = wf.techPlanning.status === 'APROBADO';
 
+                      const trm = 4217;
+                      const montoUsd = (parseFloat(project.presupuestoCop) || 0) / trm;
+                      const valorEsperadoUsd = (project.impactoRiesgo || 0) * ((project.probabilidadRiesgo || 0) / 100);
+                      const vpnEsperadoI = montoUsd !== 0 ? ((valorEsperadoUsd - montoUsd) / montoUsd).toFixed(4) : '0.0000';
+
                       return (
                         <div className="animate-in fade-in zoom-in-98 duration-300 space-y-12">
                           {/* FICHA TÉCNICA DETALLADA - PASO 1 CONSOLIDADO */}
@@ -315,7 +453,7 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
                                         <DataPoint label="ID Proyecto" value={project.idProyecto} icon={<Briefcase size={12}/>} isMono />
                                         <DataPoint label="Macroproyecto" value={project.macroproyecto} />
                                         <DataPoint label="Nombre Iniciativa" value={project.nombreIniciativa} />
-                                        <DataPoint label="Vigencia / Año" value={project.ano || '2027'} icon={<Calendar size={12}/>} />
+                                        <DataPoint label="Vigencia / Año" value={project.ano || '2026'} icon={<Calendar size={12}/>} />
                                      </div>
                                   </div>
                                   
@@ -343,6 +481,14 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
                                            <p className="text-xl font-black text-blue-600 tracking-tighter">{formatUSD(parseFloat(project.presupuestoCop) / 4217)}</p>
                                         </div>
                                         <DataPoint label="KPI Estratégico" value={project.businessCase?.contribucionKPIs || 'POR DEFINIR'} icon={<Target size={12}/>} color="text-emerald-600" />
+                                        <div className="p-5 bg-emerald-50 rounded-2xl border border-emerald-100">
+                                           <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">VPN (COP)</p>
+                                           <p className="text-xl font-black text-emerald-600 tracking-tighter">{formatCurrency(project.businessCase.indicadores.vpn || 0)}</p>
+                                        </div>
+                                        <div className="p-5 bg-emerald-50 rounded-2xl border border-emerald-100">
+                                           <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Índice VPN/I</p>
+                                           <p className="text-xl font-black text-emerald-600 tracking-tighter">{project.businessCase.indicadores.vpnI || '0.0000'}</p>
+                                        </div>
                                         <div className="flex items-center gap-2">
                                            <ListChecks size={14} className="text-gray-400" />
                                            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{project.items?.length || 0} Ítems Presupuestales registrados</span>
@@ -369,12 +515,25 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
                                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Impacto USD</p>
                                             <p className="text-lg font-black text-gray-800">{formatUSD(project.impactoRiesgo || 0)}</p>
                                          </div>
-                                         <div className="col-span-full p-6 bg-amber-50 rounded-3xl border border-amber-100">
-                                            <div className="flex justify-between items-center">
-                                              <span className="text-[10px] font-black text-amber-600 uppercase">Valor Esperado Riesgo:</span>
-                                              <span className="text-lg font-black text-amber-700">{formatUSD((project.impactoRiesgo || 0) * ((project.probabilidadRiesgo || 0) / 100))}</span>
-                                            </div>
-                                         </div>
+                                          <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100">
+                                             <div className="flex justify-between items-center">
+                                               <span className="text-[10px] font-black text-amber-600 uppercase">Valor Esperado Riesgo:</span>
+                                               <span className="text-lg font-black text-amber-700">{formatUSD(valorEsperadoUsd)}</span>
+                                             </div>
+                                          </div>
+                                          <div className="p-6 bg-emerald-50 rounded-3xl border border-emerald-100">
+                                             <div className="flex justify-between items-center">
+                                               <span className="text-[10px] font-black text-emerald-600 uppercase">VPN(Esperado)/I:</span>
+                                               <span className="text-lg font-black text-emerald-700">{vpnEsperadoI}</span>
+                                             </div>
+                                          </div>
+                                          <div className={`p-6 rounded-3xl border flex items-center justify-between col-span-2 ${getHeatmapColor(RISK_MATRIX_SCORES[mapImpactToScore(project.impactoRiesgo || 0)][mapProbToScore(project.probabilidadRiesgo || 0) - 1])}`}>
+                                             <div className="flex items-center gap-3">
+                                               <ShieldCheck size={20} />
+                                               <span className="text-[10px] font-black uppercase">Severidad Matriz</span>
+                                             </div>
+                                             <span className="text-2xl font-black">{RISK_MATRIX_SCORES[mapImpactToScore(project.impactoRiesgo || 0)][mapProbToScore(project.probabilidadRiesgo || 0) - 1]}</span>
+                                          </div>
                                       </div>
                                    </div>
                                 </div>
@@ -440,7 +599,7 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
                                    <p className="text-[10px] font-bold text-blue-800 leading-tight">La aprobación global requiere el aval de Tech y al menos uno de los validadores transversales (Financiera o Riesgo).</p>
                                 </div>
                               </div>
-                              <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                              <div className="lg:col-span-7 grid grid-cols-1 gap-8 items-start">
                                 <div className="space-y-3">
                                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Clasificación Estratégica *</label>
                                   <select disabled={!canModify} value={project.categoria || ''} onChange={(e) => handleUpdateCategory(projIdx, e.target.value)} className="w-full px-6 py-4 text-xs font-black rounded-2xl border border-gray-100 bg-white shadow-sm outline-none">
@@ -449,10 +608,6 @@ const Step2Clasificacion: React.FC<Props> = ({ rows, theme, canModify, onUpdateR
                                       <option key={cat.id} value={cat.id}>{cat.label.toUpperCase()}</option>
                                     ))}
                                   </select>
-                                </div>
-                                <div className="space-y-3">
-                                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><TrendingUp size={14} className="text-emerald-500" /> VPN Validación</label>
-                                  <input type="number" value={project.businessCase.indicadores.vpn || ''} onChange={(e) => handleUpdateVPN(projIdx, e.target.value)} className="w-full px-6 py-4 text-xs font-black rounded-2xl border border-emerald-100 bg-white shadow-sm outline-none" />
                                 </div>
                               </div>
                               <div className="lg:col-span-12 flex justify-end gap-5 pt-8 border-t border-gray-50 mt-4">
